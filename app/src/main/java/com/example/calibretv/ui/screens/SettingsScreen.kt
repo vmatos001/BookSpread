@@ -20,24 +20,27 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.DisplaySettings
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.VerticalSplit
 import androidx.compose.material.icons.filled.ViewCarousel
 import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -569,6 +572,135 @@ fun SettingsScreen(
                                 repository.saveReadingSettings(settings)
                             }
                         )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Sleep Timer
+            CleanBentoCard(
+                modifier = Modifier.fillMaxWidth(),
+                title = "Temporizador de Apagado (Sleep Timer)",
+                icon = Icons.Filled.Timer
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Apaga automáticamente el lector tras el tiempo seleccionado",
+                            color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "La pantalla se atenúa progresivamente en los últimos 2 minutos antes de cerrar.",
+                            color = TextMuted, fontSize = 11.sp
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.width(320.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(0 to "Apagado", 15 to "15 min", 30 to "30 min", 45 to "45 min", 60 to "1 hora").forEach { (min, label) ->
+                            SegmentedOption(
+                                modifier = Modifier.weight(1f),
+                                title = label,
+                                isSelected = settings.sleepTimerMinutes == min,
+                                onClick = {
+                                    settings = settings.copy(sleepTimerMinutes = min)
+                                    repository.saveReadingSettings(settings)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Lectura en Voz Alta (TTS)
+            CleanBentoCard(
+                modifier = Modifier.fillMaxWidth(),
+                title = "Lectura en Voz Alta (TTS)",
+                icon = Icons.Filled.RecordVoiceOver
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Lee el libro en voz alta con resaltado de oración activa",
+                            color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Activa desde el HUD del lector (botón ▶ Leer). Ajusta aquí la velocidad.",
+                            color = TextMuted, fontSize = 11.sp
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.width(260.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(0.75f to "Lento", 1.0f to "Normal", 1.25f to "Rápido", 1.5f to "Veloz").forEach { (speed, label) ->
+                            SegmentedOption(
+                                modifier = Modifier.weight(1f),
+                                title = label,
+                                isSelected = settings.ttsSpeedRate == speed,
+                                onClick = {
+                                    settings = settings.copy(ttsSpeedRate = speed)
+                                    repository.saveReadingSettings(settings)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Brillo del Lector y Modo Cine
+            CleanBentoCard(
+                modifier = Modifier.fillMaxWidth(),
+                title = "Brillo del Lector y Modo Cine",
+                icon = Icons.Filled.Brightness4
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Control de brillo interno independiente del brillo del TV",
+                            color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "También ajustable desde el HUD del lector. Combinar con tema 'Cine Oscuro' para sala oscura.",
+                            color = TextMuted, fontSize = 11.sp
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.width(260.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(1.0f to "100%", 0.70f to "70%", 0.50f to "50%", 0.30f to "30%").forEach { (brightness, label) ->
+                            SegmentedOption(
+                                modifier = Modifier.weight(1f),
+                                title = label,
+                                isSelected = settings.readerBrightness == brightness,
+                                onClick = {
+                                    settings = settings.copy(readerBrightness = brightness)
+                                    repository.saveReadingSettings(settings)
+                                }
+                            )
+                        }
                     }
                 }
             }

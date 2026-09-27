@@ -60,7 +60,9 @@ data class ReadingSettings(
     val sleepTimerMinutes: Int = 0, // 0 = desactivado, 15, 30, 45, 60
     val readerBrightness: Float = 1.0f, // 0.1f a 1.0f, control de brillo interno
     val readingFont: ReadingFont = ReadingFont.SERIF_SYSTEM,
-    val spineDepth3D: Float = 0.5f  // 0.0 = plano, 1.0 = tomo grueso
+    val spineDepth3D: Float = 0.5f, // 0.0 = plano, 1.0 = tomo grueso
+    val ttsEnabled: Boolean = false,
+    val ttsSpeedRate: Float = 1.0f // 0.5 = lento, 1.0 = normal, 1.5 = rápido
 )
 
 @Serializable

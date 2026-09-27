@@ -87,7 +87,9 @@ class PreferencesManager(context: Context) {
             sleepTimerMinutes = prefs.getInt("sleep_timer", 0),
             readerBrightness = prefs.getFloat("reader_brightness", 1.0f),
             readingFont = font,
-            spineDepth3D = prefs.getFloat("spine_depth_3d", 0.5f)
+            spineDepth3D = prefs.getFloat("spine_depth_3d", 0.5f),
+            ttsEnabled = prefs.getBoolean("tts_enabled", false),
+            ttsSpeedRate = prefs.getFloat("tts_speed_rate", 1.0f)
         )
     }
 
@@ -104,6 +106,8 @@ class PreferencesManager(context: Context) {
             .putFloat("reader_brightness", settings.readerBrightness)
             .putString("reading_font", settings.readingFont.name)
             .putFloat("spine_depth_3d", settings.spineDepth3D)
+            .putBoolean("tts_enabled", settings.ttsEnabled)
+            .putFloat("tts_speed_rate", settings.ttsSpeedRate)
             .apply()
     }
 

@@ -38,12 +38,15 @@ import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -69,11 +72,13 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.calibretv.data.BookRepository
+import com.example.calibretv.data.tts.TtsController
 import com.example.calibretv.data.epub.EpubParser
 import com.example.calibretv.data.epub.PageContent
 import com.example.calibretv.data.epub.PageItem
@@ -127,6 +132,16 @@ fun ReaderScreen(
     val readerFocusRequester = remember { FocusRequester() }
     val hudInitialFocusRequester = remember { FocusRequester() }
     val topBarFocusRequester = remember { FocusRequester() }
+
+    val context = LocalContext.current
+    val ttsController = remember { TtsController(context) }
+    val currentSentence by ttsController.currentSentenceIndex.collectAsState()
+    val currentSentenceText by ttsController.currentSentenceText.collectAsState()
+    val isTtsPlaying by ttsController.isPlaying.collectAsState()
+
+    DisposableEffect(Unit) {
+        onDispose { ttsController.destroy() }
+    }
 
     // Load parsed book once
     LaunchedEffect(book.id) {
@@ -191,6 +206,7 @@ fun ReaderScreen(
         if (isFlipping) return
         val nextIdx = if (forward) currentSpreadIndex + 1 else currentSpreadIndex - 1
         if (nextIdx !in spreads.indices) return
+        ttsController.stop()
 
         isFlipping = true
         flipDirectionForward = forward
@@ -291,6 +307,7 @@ fun ReaderScreen(
                                 true
                             }
                             Key.Back, Key.Escape -> {
+                                ttsController.stop()
                                 val exitPct = if (spreads.isNotEmpty()) (((currentSpreadIndex + 1) * 100) / spreads.size).coerceIn(1, 100) else 0
                                 repository.saveBookProgress(book.id, currentSpreadIndex, exitPct)
                                 onBack()
@@ -352,7 +369,8 @@ fun ReaderScreen(
                             textColor = pageText,
                             accentColor = accentColor,
                             isLeft = true,
-                            readingFont = settings.readingFont
+                            readingFont = settings.readingFont,
+                            activeSentenceText = currentSentenceText
                         )
                     }
 
@@ -374,7 +392,8 @@ fun ReaderScreen(
                             textColor = pageText,
                             accentColor = accentColor,
                             isLeft = false,
-                            readingFont = settings.readingFont
+                            readingFont = settings.readingFont,
+                            activeSentenceText = currentSentenceText
                         )
                     }
                 }
@@ -837,6 +856,25 @@ fun ReaderScreen(
                                     isSleepTimerActive = nextMinutes > 0
                                 }
                             )
+
+                            // Botón TTS (Lectura en Voz Alta)
+                            StitchHudButton(
+                                title = if (isTtsPlaying) "⏸ Pausa" else "▶ Leer",
+                                icon = Icons.Filled.RecordVoiceOver,
+                                isPrimary = isTtsPlaying,
+                                onClick = {
+                                    if (isTtsPlaying) {
+                                        ttsController.stop()
+                                    } else {
+                                        val leftText = currentSpread?.leftPage?.paragraphs?.joinToString(" ") ?: ""
+                                        val rightText = currentSpread?.rightPage?.paragraphs?.joinToString(" ") ?: ""
+                                        val pageText = listOf(leftText, rightText).filter { it.isNotBlank() }.joinToString(" ")
+                                        if (pageText.isNotBlank()) {
+                                            ttsController.readPage(pageText, settings.ttsSpeedRate)
+                                        }
+                                    }
+                                }
+                            )
                         }
                     }
                 }
@@ -853,7 +891,8 @@ private fun PageColumn(
     textColor: Color,
     accentColor: Color,
     isLeft: Boolean,
-    readingFont: ReadingFont = ReadingFont.SERIF_SYSTEM
+    readingFont: ReadingFont = ReadingFont.SERIF_SYSTEM,
+    activeSentenceText: String = ""
 ) {
     Column(
         modifier = Modifier
@@ -895,12 +934,20 @@ private fun PageColumn(
             content.items.forEachIndexed { index, item ->
                 when (item) {
                     is PageItem.Paragraph -> {
+                        val isSentenceActive = activeSentenceText.isNotBlank() && item.text.contains(activeSentenceText.trim())
+                        val highlightModifier = if (isSentenceActive) {
+                            Modifier
+                                .background(accentColor.copy(alpha = 0.22f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        } else {
+                            Modifier
+                        }
                         val isChapterStart = index == 0 && content.pageNumber % 2 == 1 && item.text.length > 20 && !item.isHeader
                         if (isChapterStart) {
                             val dropLetter = item.text.take(1)
                             val remainingPara = item.text.drop(1)
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().then(highlightModifier),
                                 verticalAlignment = Alignment.Top
                             ) {
                                 Text(
@@ -930,7 +977,7 @@ private fun PageColumn(
                                 fontWeight = FontWeight.Bold,
                                 color = accentColor,
                                 fontFamily = FontProvider.getFontFamily(readingFont),
-                                modifier = Modifier.padding(vertical = 4.dp)
+                                modifier = Modifier.padding(vertical = 4.dp).then(highlightModifier)
                             )
                         } else {
                             Text(
@@ -939,7 +986,8 @@ private fun PageColumn(
                                 lineHeight = (fontSizeSp * 1.55).sp,
                                 color = textColor,
                                 fontFamily = FontProvider.getFontFamily(readingFont),
-                                textAlign = TextAlign.Justify
+                                textAlign = TextAlign.Justify,
+                                modifier = highlightModifier
                             )
                         }
                         if (index < content.items.lastIndex) {

@@ -308,36 +308,100 @@ fun UserProfilesDialog(
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                OutlinedTextField(
-                                    value = newUserName,
-                                    onValueChange = { newUserName = it },
-                                    placeholder = { Text("Ej: Laura, Niños, etc.", color = TextMuted) },
-                                    singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = CyanElectric,
-                                        unfocusedBorderColor = Color(0xFF383842),
-                                        focusedTextColor = TextPrimary,
-                                        unfocusedTextColor = TextPrimary
-                                    ),
-                                    modifier = Modifier.weight(1f)
-                                )
+                                var isNameFieldFocused by remember { mutableStateOf(false) }
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(52.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (isNameFieldFocused) Color(0xFF1E2A35) else SurfaceContainerHigh)
+                                        .border(
+                                            width = if (isNameFieldFocused) 2.dp else 1.dp,
+                                            color = if (isNameFieldFocused) CyanElectric else Color(0xFF4A4A58),
+                                            shape = RoundedCornerShape(10.dp)
+                                        )
+                                        .onFocusChanged { isNameFieldFocused = it.isFocused }
+                                ) {
+                                    OutlinedTextField(
+                                        value = newUserName,
+                                        onValueChange = { newUserName = it },
+                                        placeholder = {
+                                            Text(
+                                                "Ej: Laura, Niños...",
+                                                color = if (isNameFieldFocused) TextMuted else Color(0xFF808090),
+                                                fontSize = 14.sp
+                                            )
+                                        },
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = Color.Transparent,
+                                            unfocusedBorderColor = Color.Transparent,
+                                            focusedTextColor = TextPrimary,
+                                            unfocusedTextColor = TextPrimary,
+                                            cursorColor = CyanElectric
+                                        ),
+                                        textStyle = androidx.compose.ui.text.TextStyle(
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Medium
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(horizontal = 4.dp)
+                                    )
+                                }
 
-                                // Color selector
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                // Color selector — círculos grandes con foco D-Pad visible
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     presetColors.forEach { hex ->
                                         val isColorSelected = selectedColorHex == hex
+                                        var isColorFocused by remember { mutableStateOf(false) }
+                                        val parsedColor = try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { AmberWarm }
+
                                         Box(
                                             modifier = Modifier
-                                                .size(28.dp)
+                                                .size(if (isColorFocused) 40.dp else 34.dp)
+                                                .shadow(
+                                                    elevation = if (isColorFocused) 10.dp else 0.dp,
+                                                    shape = CircleShape,
+                                                    spotColor = parsedColor
+                                                )
                                                 .clip(CircleShape)
-                                                .background(Color(android.graphics.Color.parseColor(hex)))
+                                                .background(parsedColor)
                                                 .border(
-                                                    width = if (isColorSelected) 2.dp else 0.dp,
-                                                    color = if (isColorSelected) Color.White else Color.Transparent,
+                                                    width = when {
+                                                        isColorFocused -> 3.dp
+                                                        isColorSelected -> 2.5.dp
+                                                        else -> 0.dp
+                                                    },
+                                                    color = when {
+                                                        isColorFocused -> Color.White
+                                                        isColorSelected -> Color.White
+                                                        else -> Color.Transparent
+                                                    },
                                                     shape = CircleShape
                                                 )
-                                                .clickable { selectedColorHex = hex }
-                                        )
+                                                .onFocusChanged { isColorFocused = it.isFocused }
+                                                .onKeyEvent { event ->
+                                                    if (event.type == KeyEventType.KeyDown &&
+                                                        (event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter)
+                                                    ) {
+                                                        selectedColorHex = hex
+                                                        true
+                                                    } else false
+                                                }
+                                                .focusable()
+                                                .clickable { selectedColorHex = hex },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (isColorSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
 

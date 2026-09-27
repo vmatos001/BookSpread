@@ -3,6 +3,7 @@ package com.example.calibretv.data.opds
 import android.util.Xml
 import com.example.calibretv.data.image.CoverLoader
 import com.example.calibretv.data.model.Book
+import com.example.calibretv.data.model.CalibreShelf
 import com.example.calibretv.data.model.OpdsCategory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -327,5 +328,76 @@ object OpdsClient {
             categories = emptyList(),
             books = emptyList()
         )
+    }
+
+    /**
+     * Determina dinámicamente si el nombre de una estantería corresponde a un personaje o lista temática principal,
+     * o bien si es una clasificación secundaria ("1 nivel", "2 nivel", "leídos", etc.).
+     */
+    fun isCharacterShelfName(name: String): Boolean {
+        val lower = name.lowercase().trim()
+        if (lower.matches(Regex("""^\d+.*"""))) return false // Ej: "1 nivel", "2 nivel", "3 nivel", etc.
+        if (lower.startsWith("nivel") || lower.startsWith("level")) return false
+        if (lower in listOf("leídos", "leidos", "favoritos", "read", "reading", "por leer", "general")) return false
+        return true
+    }
+
+    /**
+     * Obtiene la lista de estanterías (shelves) de Calibre-Web y asocia los libros correspondientes.
+     */
+    suspend fun fetchShelves(
+        serverUrl: String,
+        username: String = "",
+        password: String = ""
+    ): Result<List<CalibreShelf>> = withContext(Dispatchers.IO) {
+        val cleanUrl = serverUrl.trim()
+        val baseServer = if (cleanUrl.endsWith("/opds")) cleanUrl.dropLast(5)
+            else if (cleanUrl.endsWith("/opds/")) cleanUrl.dropLast(6)
+            else if (cleanUrl.endsWith("/")) cleanUrl.dropLast(1)
+            else cleanUrl
+
+        val shelvesUrl = "$baseServer/opds/shelves"
+        val feedResult = fetchFeed(shelvesUrl, username, password)
+        if (feedResult.isFailure) {
+            val rootRes = fetchFeed(cleanUrl, username, password)
+            val shelfCat = rootRes.getOrNull()?.categories?.firstOrNull {
+                it.title.contains("shelf", ignoreCase = true) || it.title.contains("estantería", ignoreCase = true)
+            }
+            if (shelfCat != null) {
+                return@withContext fetchShelvesFromFeed(shelfCat.feedUrl, username, password)
+            }
+            return@withContext Result.success(emptyList())
+        }
+        return@withContext fetchShelvesFromFeed(shelvesUrl, username, password)
+    }
+
+    suspend fun fetchShelvesFromFeed(
+        feedUrl: String,
+        username: String,
+        password: String
+    ): Result<List<CalibreShelf>> = withContext(Dispatchers.IO) {
+        try {
+            val feedResult = fetchFeed(feedUrl, username, password)
+            if (feedResult.isFailure) return@withContext Result.success(emptyList())
+            val feed = feedResult.getOrNull() ?: return@withContext Result.success(emptyList())
+
+            val shelves = mutableListOf<CalibreShelf>()
+            for (cat in feed.categories) {
+                val isChar = isCharacterShelfName(cat.title)
+                val shelfBooksRes = fetchFeed(cat.feedUrl, username, password)
+                val bookIds = shelfBooksRes.getOrNull()?.books?.map { it.id } ?: emptyList()
+                shelves.add(
+                    CalibreShelf(
+                        id = cat.id,
+                        name = cat.title,
+                        bookIds = bookIds,
+                        isCharacterShelf = isChar
+                    )
+                )
+            }
+            Result.success(shelves)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

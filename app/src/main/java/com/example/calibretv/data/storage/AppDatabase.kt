@@ -15,6 +15,7 @@ data class BookEntity(
     val summary: String,
     val category: String,
     val tags: String, // JSON array: ["tag1","tag2"]
+    val shelves: String = "[]", // JSON array: ["shelf1","shelf2"]
     val progressPercent: Int = 0,
     val lastReadSpread: Int = 0
 )
@@ -85,7 +86,7 @@ interface FavoriteDao {
 
 @Database(
     entities = [BookEntity::class, ReadingProgressEntity::class, FavoriteEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -102,7 +103,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "calibrotv.db"
-                ).build().also { INSTANCE = it }
+                ).fallbackToDestructiveMigration().build().also { INSTANCE = it }
             }
     }
 }

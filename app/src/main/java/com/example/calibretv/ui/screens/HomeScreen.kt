@@ -111,6 +111,7 @@ fun HomeScreen(
     // Modal state for Book Details
     var showDetailsModal by remember { mutableStateOf(false) }
     var detailsBook by remember { mutableStateOf<Book?>(null) }
+    var modalDescription by remember { mutableStateOf("") }
     val modalReadFocusRequester = remember { FocusRequester() }
 
     BackHandler(enabled = showDetailsModal || showUserProfilesModal || isDrawerOpen) {
@@ -122,6 +123,12 @@ fun HomeScreen(
     LaunchedEffect(showDetailsModal) {
         if (showDetailsModal) {
             modalReadFocusRequester.requestFocus()
+        }
+    }
+
+    LaunchedEffect(detailsBook) {
+        detailsBook?.let { b ->
+            modalDescription = repository.getOrFetchBookDescription(b)
         }
     }
 
@@ -621,6 +628,24 @@ fun HomeScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
 
+                                if (book.shelves.isNotEmpty()) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier.padding(vertical = 2.dp)
+                                    ) {
+                                        book.shelves.take(3).forEach { shelf ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(AmberWarm.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
+                                                    .border(1.dp, AmberWarm.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                                            ) {
+                                                Text(text = "🏷 $shelf", color = AmberWarm, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                            }
+                                        }
+                                    }
+                                }
+
                                 if (book.tags.isNotEmpty()) {
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -646,7 +671,7 @@ fun HomeScreen(
                                 )
 
                                 Text(
-                                    text = book.summary,
+                                    text = modalDescription.ifBlank { book.summary },
                                     color = TextPrimary.copy(alpha = 0.88f),
                                     fontSize = 13.sp,
                                     lineHeight = 19.sp,
@@ -1064,6 +1089,16 @@ private fun CompactCoverCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+
+            if (book.shelves.isNotEmpty()) {
+                Text(
+                    text = "🏷 ${book.shelves.first()}",
+                    color = AmberWarm,
+                    fontSize = 8.5.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
             Spacer(modifier = Modifier.height(3.dp))
 

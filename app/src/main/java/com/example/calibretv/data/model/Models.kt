@@ -12,8 +12,17 @@ data class Book(
     val summary: String = "",
     val category: String = "General",
     val tags: List<String> = emptyList(),
+    val shelves: List<String> = emptyList(),
     val progressPercent: Int = 0,
     val lastReadSpread: Int = 0
+)
+
+@Serializable
+data class CalibreShelf(
+    val id: String,
+    val name: String,
+    val bookIds: List<String> = emptyList(),
+    val isCharacterShelf: Boolean = false
 )
 
 @Serializable

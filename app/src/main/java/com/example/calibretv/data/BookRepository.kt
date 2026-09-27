@@ -7,6 +7,7 @@ import com.example.calibretv.data.epub.PageSpread
 import com.example.calibretv.data.epub.ParsedBook
 import com.example.calibretv.data.image.CoverLoader
 import com.example.calibretv.data.model.Book
+import com.example.calibretv.data.model.CalibreShelf
 import com.example.calibretv.data.model.OpdsCategory
 import com.example.calibretv.data.model.ReadingSettings
 import com.example.calibretv.data.model.ServerConfig
@@ -43,6 +44,12 @@ class BookRepository(private val context: Context) {
         } catch (_: Exception) {
             emptyList()
         }
+        val shelfList = try {
+            val arr = org.json.JSONArray(shelves)
+            (0 until arr.length()).map { arr.getString(it) }
+        } catch (_: Exception) {
+            emptyList()
+        }
         return Book(
             id = id,
             title = title,
@@ -52,12 +59,14 @@ class BookRepository(private val context: Context) {
             summary = summary,
             category = category,
             tags = tagList,
+            shelves = shelfList,
             progressPercent = progressPercent
         )
     }
 
     private fun Book.toEntity(lastReadSpread: Int = 0): BookEntity {
         val tagsJson = org.json.JSONArray(tags).toString()
+        val shelvesJson = org.json.JSONArray(shelves).toString()
         return BookEntity(
             id = id,
             title = title,
@@ -67,6 +76,7 @@ class BookRepository(private val context: Context) {
             summary = summary,
             category = category,
             tags = tagsJson,
+            shelves = shelvesJson,
             progressPercent = progressPercent,
             lastReadSpread = lastReadSpread
         )
@@ -152,18 +162,53 @@ class BookRepository(private val context: Context) {
     fun getLastOpenedBook(): Book? = prefs.getLastOpenedBook()
     fun saveLastOpenedBook(book: Book) = prefs.saveLastOpenedBook(book)
 
+    private var cachedShelves: List<CalibreShelf> = emptyList()
+
+    fun getShelves(): List<CalibreShelf> = cachedShelves
+
+    suspend fun loadAndApplyShelves(config: ServerConfig): List<CalibreShelf> = withContext(Dispatchers.IO) {
+        val result = OpdsClient.fetchShelves(config.serverUrl, config.username, config.password)
+        if (result.isSuccess) {
+            val shelves = result.getOrNull() ?: emptyList()
+            cachedShelves = shelves
+
+            if (shelves.isNotEmpty()) {
+                val currentBooks = getCachedBooks()
+                val updatedBooks = currentBooks.map { book ->
+                    val matchingShelves = shelves.filter { it.bookIds.contains(book.id) }.map { it.name }
+                    if (matchingShelves.isNotEmpty()) {
+                        book.copy(shelves = matchingShelves)
+                    } else {
+                        book
+                    }
+                }
+                saveCachedBooks(updatedBooks)
+            }
+            shelves
+        } else {
+            emptyList()
+        }
+    }
+
     suspend fun getOrFetchBookDescription(book: Book): String = withContext(Dispatchers.IO) {
-        if (book.summary.isNotBlank() && book.summary.length > 30 && !book.summary.contains("Sin descripción", ignoreCase = true)) {
+        // 1. Descripción tomada de Calibre-Web (siempre que no esté vacía ni sea el texto genérico generado)
+        if (book.summary.isNotBlank() && book.summary.length > 25 &&
+            !book.summary.startsWith("Obra de", ignoreCase = true) &&
+            !book.summary.contains("Sin descripción", ignoreCase = true)
+        ) {
             return@withContext book.summary
         }
+        // 2. Extraer descripción dentro del archivo EPUB si está disponible
         val cacheFile = File(context.cacheDir, "book_${book.id.hashCode()}.epub")
         if (cacheFile.exists() && cacheFile.length() > 0L) {
             val internalDesc = EpubParser.extractDescription(cacheFile)
-            if (!internalDesc.isNullOrBlank()) {
+            if (!internalDesc.isNullOrBlank() && internalDesc.length > 15) {
                 return@withContext internalDesc
             }
         }
-        OpdsClient.buildSmartDescription(book.title, book.author, book.category, book.tags)
+        // 3. Fallback inteligente generado con los datos disponibles (priorizando shelves si existen)
+        val tagsToUse = book.shelves.ifEmpty { book.tags }
+        OpdsClient.buildSmartDescription(book.title, book.author, book.category, tagsToUse)
     }
 
     /**
@@ -188,6 +233,12 @@ class BookRepository(private val context: Context) {
                     if (savedPct > 0) newBook.copy(progressPercent = savedPct) else newBook
                 }
                 saveCachedBooks(mergedBooks)
+
+                // Cargar estanterías (shelves) en segundo plano
+                try {
+                    loadAndApplyShelves(config)
+                } catch (_: Exception) {}
+
                 Result.success(feed.copy(books = mergedBooks))
             } else {
                 Result.success(feed)

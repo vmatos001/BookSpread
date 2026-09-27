@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -94,6 +95,7 @@ fun LibraryScreen(
     // Modal state for Book Details
     var showDetailsModal by remember { mutableStateOf(false) }
     var detailsBook by remember { mutableStateOf<Book?>(null) }
+    var modalDescription by remember { mutableStateOf("") }
     val modalReadFocusRequester = remember { FocusRequester() }
 
     BackHandler(enabled = showDetailsModal) {
@@ -103,6 +105,12 @@ fun LibraryScreen(
     LaunchedEffect(showDetailsModal) {
         if (showDetailsModal) {
             modalReadFocusRequester.requestFocus()
+        }
+    }
+
+    LaunchedEffect(detailsBook) {
+        detailsBook?.let { b ->
+            modalDescription = repository.getOrFetchBookDescription(b)
         }
     }
 
@@ -124,19 +132,25 @@ fun LibraryScreen(
 
     val allBooks = feedContent?.books ?: emptyList()
 
-    // Distinct tags extracted dynamically from the books catalog
-    val filterTags = remember(allBooks) {
-        val extracted = allBooks.flatMap { it.tags.ifEmpty { listOf(it.category) } }
+    // Filtros de Shelves de Calibre-Web dinámicos:
+    // Personajes (filtros primarios) + otras clasificaciones (secundarias)
+    val filterItems = remember(allBooks) {
+        val shelvesFromBooks = allBooks.flatMap { it.shelves }.distinct()
+        val charShelves = shelvesFromBooks.filter { com.example.calibretv.data.opds.OpdsClient.isCharacterShelfName(it) }.sorted()
+        val otherShelves = shelvesFromBooks.filter { !com.example.calibretv.data.opds.OpdsClient.isCharacterShelfName(it) }.sorted()
+        val remainingTags = allBooks.flatMap { it.tags.ifEmpty { listOf(it.category) } }
             .distinct()
-            .filter { it.isNotBlank() && !it.equals("General", ignoreCase = true) }
-        listOf("Todos") + extracted
+            .filter { it.isNotBlank() && !it.equals("General", ignoreCase = true) && !shelvesFromBooks.contains(it) }
+
+        listOf("Todos") + charShelves + otherShelves + remainingTags
     }
 
     val filteredBooks = remember(allBooks, selectedCategory) {
         if (selectedCategory == "Todos" || selectedCategory.isBlank()) allBooks
         else allBooks.filter { b ->
+            b.shelves.any { it.equals(selectedCategory, ignoreCase = true) } ||
             b.category.equals(selectedCategory, ignoreCase = true) ||
-                    b.tags.any { it.equals(selectedCategory, ignoreCase = true) }
+            b.tags.any { it.equals(selectedCategory, ignoreCase = true) }
         }
     }
 
@@ -270,10 +284,15 @@ fun LibraryScreen(
                         }
                     }
 
-                    items(filterTags) { tag ->
+                    items(filterItems) { tag ->
+                        val isChar = com.example.calibretv.data.opds.OpdsClient.isCharacterShelfName(tag)
                         TvCapsuleChip(
                             title = tag,
-                            icon = if (tag == "Todos") Icons.Default.Folder else Icons.Default.Sell,
+                            icon = when {
+                                tag == "Todos" -> Icons.Default.Folder
+                                isChar -> Icons.Default.Person
+                                else -> Icons.Default.Sell
+                            },
                             isSelected = selectedCategory == tag,
                             onClick = { selectedCategory = tag }
                         )
@@ -431,6 +450,24 @@ fun LibraryScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
 
+                                if (book.shelves.isNotEmpty()) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier.padding(vertical = 2.dp)
+                                    ) {
+                                        book.shelves.take(3).forEach { shelf ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(AmberWarm.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
+                                                    .border(1.dp, AmberWarm.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                                            ) {
+                                                Text(text = "🏷 $shelf", color = AmberWarm, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                            }
+                                        }
+                                    }
+                                }
+
                                 if (book.tags.isNotEmpty()) {
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -456,7 +493,7 @@ fun LibraryScreen(
                                 )
 
                                 Text(
-                                    text = book.summary,
+                                    text = modalDescription.ifBlank { book.summary },
                                     color = TextPrimary.copy(alpha = 0.88f),
                                     fontSize = 13.sp,
                                     lineHeight = 19.sp,
@@ -809,6 +846,16 @@ private fun FullCoverCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+
+            if (book.shelves.isNotEmpty()) {
+                Text(
+                    text = "🏷 ${book.shelves.first()}",
+                    color = AmberWarm,
+                    fontSize = 9.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
             Spacer(modifier = Modifier.height(4.dp))
 

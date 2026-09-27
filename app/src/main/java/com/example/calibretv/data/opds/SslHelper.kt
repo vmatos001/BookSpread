@@ -1,18 +1,16 @@
 package com.example.calibretv.data.opds
 
 import java.net.HttpURLConnection
+import java.net.InetAddress
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
-import javax.net.ssl.HostnameVerifier
-import javax.net.ssl.HttpsURLConnection
-import javax.net.ssl.SSLContext
-import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
+import javax.net.ssl.*
 
 /**
- * Permissive SSL Helper for home-hosted Calibre-Web instances, DuckDNS,
- * reverse proxies (Caddy, Nginx) and custom local certificates.
- * Prevents SSLHandshakeException and CertificateException on Android TV.
+ * SSL Helper SELECTIVO para CalibroTV.
+ * - IPs privadas (192.168.x.x, 10.x.x.x, 172.16.x.x, localhost): bypass SSL
+ *   para soportar certificados autofirmados en servidores domésticos.
+ * - Todo lo demás: usa el TrustManager del sistema (seguro por defecto).
  */
 object SslHelper {
 
@@ -32,14 +30,27 @@ object SslHelper {
 
     private val permissiveHostnameVerifier = HostnameVerifier { _, _ -> true }
 
+    private fun isPrivateHost(host: String): Boolean {
+        return try {
+            val addr = InetAddress.getByName(host)
+            addr.isSiteLocalAddress || addr.isLoopbackAddress || addr.isLinkLocalAddress
+        } catch (_: Exception) {
+            // Si no se puede resolver, asume que podría ser local (DuckDNS en LAN, etc.)
+            host.contains("local") || host.contains("home") || host.contains("duckdns")
+        }
+    }
+
     fun configureHttps(connection: HttpURLConnection) {
         if (connection is HttpsURLConnection) {
             try {
-                connection.sslSocketFactory = permissiveSslContext.socketFactory
-                connection.hostnameVerifier = permissiveHostnameVerifier
-            } catch (_: Exception) {
-                // Ignore fallback to system defaults
-            }
+                val host = connection.url.host
+                if (isPrivateHost(host)) {
+                    // Solo bypass para servidores domésticos locales
+                    connection.sslSocketFactory = permissiveSslContext.socketFactory
+                    connection.hostnameVerifier = permissiveHostnameVerifier
+                }
+                // Para hosts externos, usa el TrustManager del sistema por defecto
+            } catch (_: Exception) {}
         }
     }
 }

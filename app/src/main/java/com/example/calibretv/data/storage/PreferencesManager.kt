@@ -2,6 +2,8 @@ package com.example.calibretv.data.storage
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.example.calibretv.data.model.CurlSpeed
 import com.example.calibretv.data.model.ReadingSettings
 import com.example.calibretv.data.model.ReadingTheme
@@ -9,7 +11,22 @@ import com.example.calibretv.data.model.ServerConfig
 import com.example.calibretv.data.model.UserProfile
 
 class PreferencesManager(context: Context) {
-    private val prefs: SharedPreferences = context.getSharedPreferences("calibre_tv_prefs", Context.MODE_PRIVATE)
+    private val masterKey = MasterKey.Builder(context)
+        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+        .build()
+
+    private val prefs: SharedPreferences = try {
+        EncryptedSharedPreferences.create(
+            context,
+            "calibre_tv_prefs_secure",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    } catch (_: Exception) {
+        // Fallback a SharedPreferences normales si el hardware no soporta TEE
+        context.getSharedPreferences("calibre_tv_prefs", Context.MODE_PRIVATE)
+    }
 
     fun isSetupCompleted(): Boolean {
         return prefs.getBoolean("setup_completed_v2", false)

@@ -1,0 +1,918 @@
+package com.example.calibretv.ui.screens
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.Brightness4
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.Flip
+import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.calibretv.data.BookRepository
+import com.example.calibretv.data.epub.EpubParser
+import com.example.calibretv.data.epub.PageContent
+import com.example.calibretv.data.epub.PageItem
+import com.example.calibretv.data.epub.PageSpread
+import com.example.calibretv.data.epub.ParsedBook
+import com.example.calibretv.data.image.rememberLocalImage
+import com.example.calibretv.data.model.Book
+import com.example.calibretv.data.model.CurlSpeed
+import com.example.calibretv.data.model.ReadingSettings
+import com.example.calibretv.data.model.ReadingTheme
+import com.example.calibretv.theme.AmberWarm
+import com.example.calibretv.theme.BackgroundDark
+import com.example.calibretv.theme.CyanElectric
+import com.example.calibretv.theme.SurfaceContainerHigh
+import com.example.calibretv.theme.TextMuted
+import com.example.calibretv.theme.TextPrimary
+import com.example.calibretv.ui.components.TvNavTab
+import com.example.calibretv.ui.components.TvTopBar
+import kotlinx.coroutines.launch
+
+@Composable
+fun ReaderScreen(
+    book: Book,
+    repository: BookRepository,
+    onBack: () -> Unit,
+    onTabSelected: (TvNavTab) -> Unit = {}
+) {
+    val scope = rememberCoroutineScope()
+    var settings by remember { mutableStateOf(repository.getReadingSettings()) }
+    var activeProfile by remember { mutableStateOf(repository.getActiveProfile()) }
+    var parsedBook by remember { mutableStateOf<ParsedBook?>(null) }
+    var spreads by remember { mutableStateOf<List<PageSpread>>(emptyList()) }
+    var currentSpreadIndex by remember { mutableIntStateOf(0) }
+    var targetSpreadIndex by remember { mutableIntStateOf(0) }
+    var isFlipping by remember { mutableStateOf(false) }
+    var flipDirectionForward by remember { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    // Navigation and HUD visibility
+    var showBottomHud by remember { mutableStateOf(false) } // Triggered by DPAD_DOWN
+    var showTopBar by remember { mutableStateOf(false) }    // Triggered by DPAD_UP
+
+    val curlAnim = remember { Animatable(0f) }
+    val readerFocusRequester = remember { FocusRequester() }
+    val hudInitialFocusRequester = remember { FocusRequester() }
+    val topBarFocusRequester = remember { FocusRequester() }
+
+    // Load parsed book once
+    LaunchedEffect(book.id) {
+        isLoading = true
+        val raw = repository.loadRawBook(book)
+        parsedBook = raw
+        val initialSpreads = EpubParser.paginate(raw, settings.fontSizeSp, settings.overscanPercent)
+        spreads = initialSpreads
+        val savedSpread = repository.getBookProgress(book.id)
+        if (savedSpread in initialSpreads.indices) {
+            currentSpreadIndex = savedSpread
+            targetSpreadIndex = savedSpread
+        }
+        isLoading = false
+        readerFocusRequester.requestFocus()
+    }
+
+    // Dynamic responsive re-pagination whenever font size or overscan changes!
+    // Ensures text never cuts off and page count adapts organically to font size.
+    LaunchedEffect(settings.fontSizeSp, settings.overscanPercent) {
+        parsedBook?.let { raw ->
+            val prevTotal = spreads.size.coerceAtLeast(1)
+            val currentFraction = currentSpreadIndex.toFloat() / prevTotal.toFloat()
+            val newSpreads = EpubParser.paginate(raw, settings.fontSizeSp, settings.overscanPercent)
+            spreads = newSpreads
+            if (newSpreads.isNotEmpty()) {
+                val newIndex = (currentFraction * newSpreads.size).toInt().coerceIn(0, newSpreads.size - 1)
+                currentSpreadIndex = newIndex
+                targetSpreadIndex = newIndex
+                val pct = (((newIndex + 1) * 100) / newSpreads.size).coerceIn(1, 100)
+                repository.saveBookProgress(book.id, newIndex, pct)
+            }
+        }
+    }
+
+    // Trigger Apple Books realistic 3D paper curl
+    fun turnPage(forward: Boolean) {
+        if (isFlipping) return
+        val nextIdx = if (forward) currentSpreadIndex + 1 else currentSpreadIndex - 1
+        if (nextIdx !in spreads.indices) return
+
+        isFlipping = true
+        flipDirectionForward = forward
+        targetSpreadIndex = nextIdx
+
+        scope.launch {
+            // Realistic organic duration: Apple Books 500ms vs Fluid 320ms
+            val animDuration = if (settings.curlSpeed == CurlSpeed.APPLE_BOOKS_SMOOTH) 500 else 320
+            // Organic paper physics easing (starts with natural peel resistance, accelerates through apex, decelerates as page lands)
+            val paperEasing = CubicBezierEasing(0.35f, 0.05f, 0.25f, 1.0f)
+
+            curlAnim.snapTo(0f)
+            curlAnim.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(animDuration, easing = paperEasing)
+            )
+
+            val pct = if (spreads.isNotEmpty()) (((nextIdx + 1) * 100) / spreads.size).coerceIn(1, 100) else 0
+            currentSpreadIndex = nextIdx
+            repository.saveBookProgress(book.id, nextIdx, pct)
+            curlAnim.snapTo(0f)
+            isFlipping = false
+        }
+    }
+
+    val currentSpread = spreads.getOrNull(currentSpreadIndex)
+    val nextSpread = spreads.getOrNull(targetSpreadIndex)
+
+    // Palette Colors based on Stitch Reading Themes (Including Pergamino Clásico)
+    val (pageBg, pageText, accentColor) = when (settings.theme) {
+        ReadingTheme.PERGAMINO -> Triple(Color(0xFFF4F1EA), Color(0xFF2C2A29), Color(0xFFC29B38))
+        ReadingTheme.OLED_PURE -> Triple(Color(0xFF000000), Color(0xFFE5E1E4), CyanElectric)
+        ReadingTheme.SEPIA_CINE -> Triple(Color(0xFF26201A), Color(0xFFE6DBCC), AmberWarm)
+        ReadingTheme.NIGHT_AMBER -> Triple(Color(0xFF0D0D0D), Color(0xFFFFC664), AmberWarm)
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BackgroundDark)
+            .focusRequester(readerFocusRequester)
+            .focusable()
+            .onKeyEvent { keyEvent ->
+                if (keyEvent.type == KeyEventType.KeyDown) {
+                    if (showBottomHud) {
+                        when (keyEvent.key) {
+                            Key.DirectionUp, Key.Back, Key.Escape -> {
+                                showBottomHud = false
+                                readerFocusRequester.requestFocus()
+                                true
+                            }
+                            // Allow D-Pad navigation between buttons in the HUD!
+                            Key.DirectionLeft, Key.DirectionRight, Key.DirectionDown -> false
+                            else -> false
+                        }
+                    } else if (showTopBar) {
+                        when (keyEvent.key) {
+                            Key.DirectionDown, Key.Back, Key.Escape -> {
+                                showTopBar = false
+                                readerFocusRequester.requestFocus()
+                                true
+                            }
+                            // Allow D-Pad navigation between tabs in the TopBar!
+                            Key.DirectionLeft, Key.DirectionRight, Key.DirectionUp -> false
+                            else -> false
+                        }
+                    } else {
+                        when (keyEvent.key) {
+                            Key.DirectionRight, Key.PageDown, Key.MediaFastForward -> {
+                                turnPage(forward = true)
+                                true
+                            }
+                            Key.DirectionLeft, Key.PageUp, Key.MediaRewind -> {
+                                turnPage(forward = false)
+                                true
+                            }
+                            // DOWN on remote reveals the Stitch HUD with direct button focus
+                            Key.DirectionDown -> {
+                                showBottomHud = true
+                                showTopBar = false
+                                true
+                            }
+                            // UP on remote reveals the Top Navigation Bar
+                            Key.DirectionUp -> {
+                                showTopBar = true
+                                showBottomHud = false
+                                true
+                            }
+                            Key.Back, Key.Escape -> {
+                                val exitPct = if (spreads.isNotEmpty()) (((currentSpreadIndex + 1) * 100) / spreads.size).coerceIn(1, 100) else 0
+                                repository.saveBookProgress(book.id, currentSpreadIndex, exitPct)
+                                onBack()
+                                true
+                            }
+                            else -> false
+                        }
+                    }
+                } else false
+            }
+    ) {
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator(color = CyanElectric)
+                    Text("Cargando pliegos 16:9...", color = Color.White.copy(alpha = 0.7f), fontSize = 16.sp)
+                }
+            }
+        } else if (currentSpread != null) {
+            // Full Screen 16:9 Two-Page Spread (Overscan margin applied strictly here, keeping HUD intact!)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        horizontal = (settings.overscanPercent * 18).dp,
+                        vertical = (settings.overscanPercent * 10).dp
+                    )
+                    .graphicsLayer {
+                        // Projection hardware calibration (Ceiling / Mirror / Rotation)
+                        if (settings.rotation180) {
+                            rotationZ = 180f
+                        }
+                        if (settings.verticalMirror) {
+                            scaleY = -1f
+                        }
+                    }
+                    .background(pageBg)
+            ) {
+                // 1. Base Layer: Underneath spreads
+                Row(modifier = Modifier.fillMaxSize()) {
+                    // Left Page
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    ) {
+                        val leftContent = if (isFlipping && !flipDirectionForward && nextSpread != null) {
+                            nextSpread.leftPage
+                        } else {
+                            currentSpread.leftPage
+                        }
+                        PageColumn(
+                            content = leftContent,
+                            pageNumber = currentSpreadIndex * 2 + 1,
+                            fontSizeSp = settings.fontSizeSp,
+                            textColor = pageText,
+                            accentColor = accentColor,
+                            isLeft = true
+                        )
+                    }
+
+                    // Right Page (shows next spread's right page when turning forward)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    ) {
+                        val rightContent = if (isFlipping && flipDirectionForward && nextSpread != null) {
+                            nextSpread.rightPage
+                        } else {
+                            currentSpread.rightPage
+                        }
+                        PageColumn(
+                            content = rightContent,
+                            pageNumber = currentSpreadIndex * 2 + 2,
+                            fontSizeSp = settings.fontSizeSp,
+                            textColor = pageText,
+                            accentColor = accentColor,
+                            isLeft = false
+                        )
+                    }
+                }
+
+                // 2. Physical 3D Apple-Books Style Turning Page Leaf (Page-Curl)
+                if (isFlipping) {
+                    val progress = curlAnim.value
+                    val cylindricalFoldAlpha = (kotlin.math.sin(progress * Math.PI.toFloat()) * 0.58f).coerceIn(0f, 0.60f)
+
+                    if (flipDirectionForward) {
+                        // Turning Forward: Right page curls from right to left (0° to -180°)
+                        val angle = -180f * progress
+                        val isFront = angle > -90f
+
+                        // Dynamic shadow underneath the curling fold
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(0.5f)
+                                .align(Alignment.CenterEnd)
+                                .background(
+                                    Brush.horizontalGradient(
+                                        colors = listOf(
+                                            Color.Black.copy(alpha = (1f - progress) * 0.60f),
+                                            Color.Transparent
+                                        )
+                                    )
+                                )
+                        )
+
+                        // The Organic Turning Leaf
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(0.5f)
+                                .align(Alignment.CenterEnd)
+                                .graphicsLayer {
+                                    transformOrigin = TransformOrigin(0f, 0.5f) // Anchored at central spine
+                                    rotationY = angle
+                                    cameraDistance = 7f * density // 3D perspective distortion (StPageFlip standard)
+                                }
+                                .background(pageBg)
+                        ) {
+                            if (isFront) {
+                                // Front of turning page: Current Right Page
+                                PageColumn(
+                                    content = currentSpread.rightPage,
+                                    pageNumber = currentSpreadIndex * 2 + 2,
+                                    fontSizeSp = settings.fontSizeSp,
+                                    textColor = pageText,
+                                    accentColor = accentColor,
+                                    isLeft = false
+                                )
+
+                                // Cylindrical curved paper fold shadow on outer edge
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .width(80.dp)
+                                        .align(Alignment.CenterEnd)
+                                        .background(
+                                            Brush.horizontalGradient(
+                                                colors = listOf(
+                                                    Color.Transparent,
+                                                    Color.Black.copy(alpha = cylindricalFoldAlpha)
+                                                )
+                                            )
+                                        )
+                                )
+                            } else {
+                                // Back of turning page: Next Left Page (flipped back for readability)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer { rotationY = 180f }
+                                ) {
+                                    nextSpread?.let { ns ->
+                                        PageColumn(
+                                            content = ns.leftPage,
+                                            pageNumber = targetSpreadIndex * 2 + 1,
+                                            fontSizeSp = settings.fontSizeSp,
+                                            textColor = pageText,
+                                            accentColor = accentColor,
+                                            isLeft = true
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Cast shadow over left page as the leaf lands
+                        if (progress > 0.40f) {
+                            val shadowAlpha = (((progress - 0.40f) / 0.60f) * 0.55f).coerceIn(0f, 0.55f)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(0.5f)
+                                    .align(Alignment.CenterStart)
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            colors = listOf(
+                                                Color.Transparent,
+                                                Color.Black.copy(alpha = shadowAlpha)
+                                            )
+                                        )
+                                    )
+                            )
+                        }
+                    } else {
+                        // Turning Backward: Next Left Page flips from left to right (-180° to 0°)
+                        val angle = -180f * (1f - progress)
+                        val isFront = angle > -90f
+
+                        // Dynamic shadow under curling fold
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(0.5f)
+                                .align(Alignment.CenterStart)
+                                .background(
+                                    Brush.horizontalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            Color.Black.copy(alpha = progress * 0.60f)
+                                        )
+                                    )
+                                )
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(0.5f)
+                                .align(Alignment.CenterStart)
+                                .graphicsLayer {
+                                    transformOrigin = TransformOrigin(1f, 0.5f)
+                                    rotationY = angle
+                                    cameraDistance = 7f * density
+                                }
+                                .background(pageBg)
+                        ) {
+                            if (isFront) {
+                                nextSpread?.let { ns ->
+                                    PageColumn(
+                                        content = ns.rightPage,
+                                        pageNumber = targetSpreadIndex * 2 + 2,
+                                        fontSizeSp = settings.fontSizeSp,
+                                        textColor = pageText,
+                                        accentColor = accentColor,
+                                        isLeft = false
+                                    )
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer { rotationY = 180f }
+                                ) {
+                                    PageColumn(
+                                        content = currentSpread.leftPage,
+                                        pageNumber = currentSpreadIndex * 2 + 1,
+                                        fontSizeSp = settings.fontSizeSp,
+                                        textColor = pageText,
+                                        accentColor = accentColor,
+                                        isLeft = true
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 3. Central Spine Crease Shadow (Depth of real physical book)
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(44.dp)
+                        .align(Alignment.Center)
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.38f),
+                                    Color.Black.copy(alpha = 0.14f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+
+                // 4. Subtle Corner Curl Hint on Bottom-Right (Stitch Specification)
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .align(Alignment.BottomEnd)
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.16f),
+                                    accentColor.copy(alpha = 0.14f)
+                                )
+                            ),
+                            shape = RoundedCornerShape(topStart = 36.dp)
+                        )
+                )
+            }
+        }
+
+        // ==========================================
+        // BARRA SUPERIOR (Requisito E: Aparece al pulsar DPAD_UP)
+        // ==========================================
+        AnimatedVisibility(
+            visible = showTopBar,
+            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+            modifier = Modifier.align(Alignment.TopCenter)
+        ) {
+            LaunchedEffect(showTopBar) {
+                if (showTopBar) {
+                    topBarFocusRequester.requestFocus()
+                }
+            }
+
+            TvTopBar(
+                currentTab = TvNavTab.LECTOR_3D,
+                initialFocusRequester = topBarFocusRequester,
+                onTabSelected = { tab ->
+                    showTopBar = false
+                    repository.saveBookProgress(book.id, currentSpreadIndex)
+                    onTabSelected(tab)
+                },
+                activeProfile = activeProfile,
+                onProfileClick = {
+                    val profiles = repository.getProfiles()
+                    val curIdx = profiles.indexOfFirst { it.id == activeProfile.id }
+                    activeProfile = profiles[(curIdx + 1) % profiles.size]
+                    repository.saveActiveProfile(activeProfile)
+                }
+            )
+        }
+
+        // ==========================================
+        // NUEVO HUD OFICIAL STITCH (Aparece al pulsar DPAD_DOWN)
+        // Con foco automático y control directo por D-Pad
+        // ==========================================
+        AnimatedVisibility(
+            visible = showBottomHud,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 20.dp)
+        ) {
+            val totalSpreads = spreads.size.coerceAtLeast(1)
+            val currentProgressPct = ((currentSpreadIndex + 1) * 100) / totalSpreads
+            val remainingMin = ((totalSpreads - currentSpreadIndex) * 1.5).toInt().coerceAtLeast(1)
+
+            LaunchedEffect(showBottomHud) {
+                if (showBottomHud) {
+                    hudInitialFocusRequester.requestFocus()
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(Color(0xFF131315).copy(alpha = 0.96f))
+                    .border(1.5.dp, CyanElectric.copy(alpha = 0.4f), RoundedCornerShape(18.dp))
+                    .padding(horizontal = 24.dp, vertical = 14.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // Top Row: Chapter Info + Reading Telemetry
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MenuBook,
+                                contentDescription = null,
+                                tint = AmberWarm,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            val leftPageNum = currentSpreadIndex * 2 + 1
+                            val rightPageNum = currentSpreadIndex * 2 + 2
+                            val chapterName = currentSpread?.leftPage?.chapterTitle ?: book.title
+                            Text(
+                                text = "📖 $chapterName • Págs. $leftPageNum-$rightPageNum",
+                                color = TextPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Text(
+                            text = "$currentProgressPct% • $remainingMin min restantes",
+                            color = CyanElectric,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Progress bar
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .background(Color(0xFF26262A), RoundedCornerShape(2.dp))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(currentProgressPct / 100f)
+                                .height(4.dp)
+                                .background(CyanElectric, RoundedCornerShape(2.dp))
+                        )
+                    }
+
+                    // Bottom Row: Action Controls with Single-Click
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Navigation buttons
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            StitchHudButton(
+                                title = "‹ Anterior",
+                                icon = Icons.Default.ChevronLeft,
+                                isPrimary = false,
+                                modifier = Modifier.focusRequester(hudInitialFocusRequester),
+                                onClick = { turnPage(forward = false) }
+                            )
+                            StitchHudButton(
+                                title = "Salto de Página",
+                                icon = Icons.Default.MenuBook,
+                                isPrimary = true,
+                                onClick = {
+                                    val jumpIdx = (currentSpreadIndex + 5).coerceAtMost(spreads.size - 1)
+                                    currentSpreadIndex = jumpIdx
+                                    repository.saveBookProgress(book.id, jumpIdx)
+                                }
+                            )
+                            StitchHudButton(
+                                title = "Siguiente ›",
+                                icon = Icons.Default.ChevronRight,
+                                isPrimary = false,
+                                onClick = { turnPage(forward = true) }
+                            )
+                        }
+
+                        // Optics and Mode buttons (Tamaño Fuente, Tema Hoja, Márgenes)
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            StitchHudButton(
+                                title = "Fuente (${settings.fontSizeSp}sp)",
+                                icon = Icons.Default.FormatSize,
+                                isPrimary = false,
+                                onClick = {
+                                    val nextSize = when (settings.fontSizeSp) {
+                                        16 -> 18
+                                        18 -> 20
+                                        20 -> 22
+                                        22 -> 24
+                                        else -> 16
+                                    }
+                                    settings = settings.copy(fontSizeSp = nextSize)
+                                    repository.saveReadingSettings(settings)
+                                }
+                            )
+                            val themeName = when (settings.theme) {
+                                ReadingTheme.PERGAMINO -> "Pergamino"
+                                ReadingTheme.OLED_PURE -> "OLED Puro"
+                                ReadingTheme.SEPIA_CINE -> "Sepia"
+                                ReadingTheme.NIGHT_AMBER -> "Ámbar Noche"
+                            }
+                            StitchHudButton(
+                                title = "Tema: $themeName",
+                                icon = Icons.Default.Palette,
+                                isPrimary = true,
+                                onClick = {
+                                    val nextTheme = when (settings.theme) {
+                                        ReadingTheme.PERGAMINO -> ReadingTheme.OLED_PURE
+                                        ReadingTheme.OLED_PURE -> ReadingTheme.SEPIA_CINE
+                                        ReadingTheme.SEPIA_CINE -> ReadingTheme.NIGHT_AMBER
+                                        ReadingTheme.NIGHT_AMBER -> ReadingTheme.PERGAMINO
+                                    }
+                                    settings = settings.copy(theme = nextTheme)
+                                    repository.saveReadingSettings(settings)
+                                }
+                            )
+                            val marginPct = settings.overscanPercent
+                            StitchHudButton(
+                                title = "Márgenes: $marginPct%",
+                                icon = Icons.Default.AspectRatio,
+                                isPrimary = settings.overscanPercent > 0,
+                                onClick = {
+                                    val nextMargin = when (settings.overscanPercent) {
+                                        0 -> 4
+                                        4 -> 8
+                                        else -> 0
+                                    }
+                                    settings = settings.copy(overscanPercent = nextMargin)
+                                    repository.saveReadingSettings(settings)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PageColumn(
+    content: PageContent,
+    pageNumber: Int,
+    fontSizeSp: Int,
+    textColor: Color,
+    accentColor: Color,
+    isLeft: Boolean
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 42.dp, vertical = 22.dp),
+        verticalArrangement = Arrangement.Top
+    ) {
+        // Running Head (Header)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = content.chapterTitle.uppercase(),
+                color = textColor.copy(alpha = 0.55f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp
+            )
+            Text(
+                text = content.bookTitle,
+                color = textColor.copy(alpha = 0.45f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+
+        // Body Content (Formatted with safe layout to prevent overflow clipping)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f, fill = false)
+                .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.Top
+        ) {
+            content.items.forEachIndexed { index, item ->
+                when (item) {
+                    is PageItem.Paragraph -> {
+                        val isChapterStart = index == 0 && content.pageNumber % 2 == 1 && item.text.length > 20 && !item.isHeader
+                        if (isChapterStart) {
+                            val dropLetter = item.text.take(1)
+                            val remainingPara = item.text.drop(1)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Text(
+                                    text = dropLetter,
+                                    fontSize = (fontSizeSp * 2.3).sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = accentColor,
+                                    fontFamily = FontFamily.Serif,
+                                    lineHeight = (fontSizeSp * 2.3).sp,
+                                    modifier = Modifier.padding(end = 10.dp, top = 2.dp)
+                                )
+                                Text(
+                                    text = remainingPara,
+                                    fontSize = fontSizeSp.sp,
+                                    lineHeight = (fontSizeSp * 1.55).sp,
+                                    color = textColor,
+                                    fontFamily = FontFamily.Serif,
+                                    textAlign = TextAlign.Justify,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        } else if (item.isHeader) {
+                            Text(
+                                text = item.text,
+                                fontSize = (fontSizeSp * 1.25).sp,
+                                lineHeight = (fontSizeSp * 1.6).sp,
+                                fontWeight = FontWeight.Bold,
+                                color = accentColor,
+                                fontFamily = FontFamily.Serif,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        } else {
+                            Text(
+                                text = item.text,
+                                fontSize = fontSizeSp.sp,
+                                lineHeight = (fontSizeSp * 1.55).sp,
+                                color = textColor,
+                                fontFamily = FontFamily.Serif,
+                                textAlign = TextAlign.Justify
+                            )
+                        }
+                        if (index < content.items.lastIndex) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                    is PageItem.Image -> {
+                        val imageBitmap = rememberLocalImage(item.imageFile)
+                        if (imageBitmap != null) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    bitmap = imageBitmap,
+                                    contentDescription = item.altText ?: "Ilustración",
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.92f)
+                                        .heightIn(min = 60.dp, max = 220.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StitchHudButton(
+    title: String,
+    icon: ImageVector,
+    isPrimary: Boolean = false,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier
+            .scale(if (isFocused) 1.06f else 1.0f)
+            .shadow(if (isFocused) 8.dp else 0.dp, RoundedCornerShape(8.dp), spotColor = CyanElectric)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isPrimary || isFocused) AmberWarm else SurfaceContainerHigh)
+            .border(
+                width = if (isFocused) 2.dp else 0.dp,
+                color = if (isFocused) CyanElectric else Color.Transparent,
+                shape = RoundedCornerShape(8.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 7.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isPrimary || isFocused) Color(0xFF131315) else TextPrimary,
+            modifier = Modifier.size(15.dp)
+        )
+        Text(
+            text = title,
+            color = if (isPrimary || isFocused) Color(0xFF131315) else TextPrimary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}

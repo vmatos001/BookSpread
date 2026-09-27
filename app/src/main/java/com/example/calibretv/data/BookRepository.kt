@@ -1,0 +1,230 @@
+package com.example.calibretv.data
+
+import android.content.Context
+import com.example.calibretv.data.epub.EpubParser
+import com.example.calibretv.data.epub.PageSpread
+import com.example.calibretv.data.epub.ParsedBook
+import com.example.calibretv.data.image.CoverLoader
+import com.example.calibretv.data.model.Book
+import com.example.calibretv.data.model.OpdsCategory
+import com.example.calibretv.data.model.ReadingSettings
+import com.example.calibretv.data.model.ServerConfig
+import com.example.calibretv.data.model.UserProfile
+import com.example.calibretv.data.opds.OpdsClient
+import com.example.calibretv.data.opds.OpdsFeedContent
+import com.example.calibretv.data.opds.SslHelper
+import com.example.calibretv.data.storage.PreferencesManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+
+class BookRepository(private val context: Context) {
+    private val prefs = PreferencesManager(context)
+
+    fun getServerConfig(): ServerConfig = prefs.getServerConfig()
+    fun saveServerConfig(config: ServerConfig) = prefs.saveServerConfig(config)
+
+    fun getReadingSettings(): ReadingSettings = prefs.getReadingSettings()
+    fun saveReadingSettings(settings: ReadingSettings) = prefs.saveReadingSettings(settings)
+
+    fun getActiveProfile(): UserProfile = prefs.getActiveProfile()
+    fun saveActiveProfile(profile: UserProfile) = prefs.saveActiveProfile(profile)
+    fun getProfiles(): List<UserProfile> = prefs.getProfiles()
+    fun saveProfiles(profiles: List<UserProfile>) = prefs.saveProfiles(profiles)
+    fun createProfile(name: String, colorHex: String = "#FFA000"): UserProfile = prefs.createProfile(name, colorHex)
+
+    fun isFavorite(bookId: String): Boolean = prefs.isFavorite(prefs.getActiveProfile().id, bookId)
+    fun toggleFavorite(bookId: String): Boolean = prefs.toggleFavorite(prefs.getActiveProfile().id, bookId)
+    fun getFavoriteBookIds(): Set<String> = prefs.getFavoriteBookIds(prefs.getActiveProfile().id)
+    fun getFavoriteBooks(): List<Book> {
+        val favIds = getFavoriteBookIds()
+        return prefs.getCachedBooks().filter { favIds.contains(it.id) }
+    }
+    fun getCachedBooks(): List<Book> = prefs.getCachedBooks()
+
+    fun getBookProgress(bookId: String): Int = prefs.getBookProgress(bookId)
+    fun getBookProgressPercent(bookId: String): Int = prefs.getBookProgressPercent(bookId)
+    fun saveBookProgress(bookId: String, spreadIndex: Int, percent: Int = 0) = prefs.saveBookProgress(bookId, spreadIndex, percent)
+
+    fun getLastOpenedBook(): Book? = prefs.getLastOpenedBook()
+    fun saveLastOpenedBook(book: Book) = prefs.saveLastOpenedBook(book)
+
+    suspend fun getOrFetchBookDescription(book: Book): String = withContext(Dispatchers.IO) {
+        if (book.summary.isNotBlank() && book.summary.length > 30 && !book.summary.contains("Sin descripción", ignoreCase = true)) {
+            return@withContext book.summary
+        }
+        val cacheFile = File(context.cacheDir, "book_${book.id.hashCode()}.epub")
+        if (cacheFile.exists() && cacheFile.length() > 0L) {
+            val internalDesc = EpubParser.extractDescription(cacheFile)
+            if (!internalDesc.isNullOrBlank()) {
+                return@withContext internalDesc
+            }
+        }
+        OpdsClient.buildSmartDescription(book.title, book.author, book.category, book.tags)
+    }
+
+    /**
+     * Connects to the OPDS server, verifies credentials, scans for all books and saves metadata.
+     * Does NOT download EPUBs (protects TV memory).
+     * Performs incremental comparison preserving local reading progress.
+     */
+    suspend fun scanServerLibrary(config: ServerConfig): Result<OpdsFeedContent> = withContext(Dispatchers.IO) {
+        val scanResult = OpdsClient.fetchLibraryCatalog(
+            serverUrl = config.serverUrl,
+            username = config.username,
+            password = config.password
+        )
+
+        if (scanResult.isSuccess) {
+            val feed = scanResult.getOrNull()!!
+            saveServerConfig(config)
+            if (feed.books.isNotEmpty()) {
+                // Incremental sync: Preserve user reading progress for existing books
+                val mergedBooks = feed.books.map { newBook ->
+                    val savedPct = prefs.getBookProgressPercent(newBook.id)
+                    if (savedPct > 0) newBook.copy(progressPercent = savedPct) else newBook
+                }
+                prefs.saveCachedBooks(mergedBooks)
+                Result.success(feed.copy(books = mergedBooks))
+            } else {
+                Result.success(feed)
+            }
+        } else {
+            scanResult
+        }
+    }
+
+    suspend fun getFeed(targetUrl: String? = null): OpdsFeedContent = withContext(Dispatchers.IO) {
+        val config = getServerConfig()
+
+        // 1. If explicit subfeed target requested
+        if (!targetUrl.isNullOrBlank() && (targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))) {
+            val result = OpdsClient.fetchFeed(targetUrl, config.username, config.password)
+            if (result.isSuccess) {
+                val feed = result.getOrNull()!!
+                val annotated = feed.books.map { b ->
+                    val realPct = getBookProgressPercent(b.id)
+                    b.copy(progressPercent = if (realPct > 0) realPct else b.progressPercent)
+                }
+                return@withContext feed.copy(books = annotated)
+            }
+        }
+
+        // 2. Load from cached library if available (Lightweight metadata - covers & synopses)
+        val cached = prefs.getCachedBooks()
+        if (cached.isNotEmpty()) {
+            val allTags = cached.flatMap { it.tags.ifEmpty { listOf(it.category) } }
+                .distinct()
+                .filter { it.isNotBlank() && !it.equals("General", ignoreCase = true) }
+
+            val categories = mutableListOf(OpdsCategory("cat_all", "Todos", ""))
+            allTags.forEachIndexed { idx, tag ->
+                categories.add(OpdsCategory("cat_$idx", tag, ""))
+            }
+
+            val annotated = cached.map { b ->
+                val realPct = getBookProgressPercent(b.id)
+                b.copy(progressPercent = if (realPct > 0) realPct else b.progressPercent)
+            }
+            return@withContext OpdsFeedContent(
+                title = "Biblioteca Calibre",
+                categories = categories,
+                books = annotated
+            )
+        }
+
+        // 3. If no cached books but server URL configured, attempt scan
+        if (config.serverUrl.isNotBlank() && (config.serverUrl.startsWith("http://") || config.serverUrl.startsWith("https://"))) {
+            val scanResult = scanServerLibrary(config)
+            if (scanResult.isSuccess) {
+                val feed = scanResult.getOrNull()!!
+                if (feed.books.isNotEmpty()) {
+                    val annotated = feed.books.map { b ->
+                        val realPct = getBookProgressPercent(b.id)
+                        b.copy(progressPercent = if (realPct > 0) realPct else b.progressPercent)
+                    }
+                    return@withContext feed.copy(books = annotated)
+                }
+            }
+        }
+
+        // 4. No fake mockup data: Return empty feed if not configured or empty
+        OpdsFeedContent(
+            title = "Biblioteca Calibre",
+            categories = listOf(OpdsCategory("cat_all", "Todos", "")),
+            books = emptyList()
+        )
+    }
+
+    fun isSetupCompleted(): Boolean = prefs.isSetupCompleted()
+    fun setSetupCompleted(completed: Boolean) = prefs.setSetupCompleted(completed)
+
+    /**
+     * Lazy EPUB Loader: Downloads the EPUB file to TV cache ONLY when the user clicks 'Leer en 3D'.
+     * Returns structured ParsedBook containing chapters, text blocks and extracted images.
+     */
+    suspend fun loadRawBook(book: Book): ParsedBook = withContext(Dispatchers.IO) {
+        saveLastOpenedBook(book)
+        val epubUrl = book.epubUrl
+        if (epubUrl.isNullOrBlank()) {
+            return@withContext EpubParser.getNoticeBook(
+                book.title,
+                "Este título no cuenta con archivo EPUB descargable en el servidor."
+            )
+        }
+
+        val cacheFile = File(context.cacheDir, "book_${book.id.hashCode()}.epub")
+        if (!cacheFile.exists() || cacheFile.length() == 0L) {
+            val downloaded = downloadEpub(epubUrl, cacheFile)
+            if (!downloaded) {
+                return@withContext EpubParser.getNoticeBook(
+                    book.title,
+                    "Error al descargar el libro desde el servidor Calibre-Web. Verifica tu conexión de red o permisos."
+                )
+            }
+        }
+
+        return@withContext EpubParser.parseEpubToBook(cacheFile, book.title)
+    }
+
+    suspend fun loadBookSpreads(
+        book: Book,
+        fontSizeSp: Int = 18,
+        overscanPercent: Int = 0
+    ): List<PageSpread> = withContext(Dispatchers.IO) {
+        val raw = loadRawBook(book)
+        return@withContext EpubParser.paginate(raw, fontSizeSp, overscanPercent)
+    }
+
+    private fun downloadEpub(epubUrl: String, destFile: File): Boolean {
+        return try {
+            val config = getServerConfig()
+            val url = URL(epubUrl)
+            val conn = url.openConnection() as HttpURLConnection
+            SslHelper.configureHttps(conn)
+            conn.connectTimeout = 10000
+            conn.readTimeout = 25000
+            conn.instanceFollowRedirects = true
+            conn.setRequestProperty("User-Agent", "CalibreTV/1.0 (Android TV)")
+            val auth = CoverLoader.buildBasicAuth(config.username, config.password)
+            if (auth != null) conn.setRequestProperty("Authorization", auth)
+            conn.connect()
+
+            if (conn.responseCode in 200..299) {
+                conn.inputStream.use { input ->
+                    FileOutputStream(destFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                true
+            } else {
+                false
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+}

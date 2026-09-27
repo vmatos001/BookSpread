@@ -1,0 +1,624 @@
+package com.example.calibretv.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DisplaySettings
+import androidx.compose.material.icons.filled.Flip
+import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.filled.VerticalSplit
+import androidx.compose.material.icons.filled.ViewCarousel
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.calibretv.data.BookRepository
+import com.example.calibretv.data.model.CurlSpeed
+import com.example.calibretv.data.model.ReadingSettings
+import com.example.calibretv.data.model.ReadingTheme
+import com.example.calibretv.theme.AmberWarm
+import com.example.calibretv.theme.BackgroundDark
+import com.example.calibretv.theme.CyanElectric
+import com.example.calibretv.theme.SurfaceContainer
+import com.example.calibretv.theme.SurfaceContainerHigh
+import com.example.calibretv.theme.TextMuted
+import com.example.calibretv.theme.TextPrimary
+import com.example.calibretv.ui.components.TvNavTab
+import com.example.calibretv.ui.components.TvTopBar
+
+@Composable
+fun SettingsScreen(
+    repository: BookRepository,
+    onTabSelected: (TvNavTab) -> Unit,
+    onOpenOpds: () -> Unit = {},
+    onSaved: () -> Unit
+) {
+    androidx.activity.compose.BackHandler { onSaved() }
+
+    var settings by remember { mutableStateOf(repository.getReadingSettings()) }
+    var activeProfile by remember { mutableStateOf(repository.getActiveProfile()) }
+    var saveFeedback by remember { mutableStateOf("") }
+    val scrollState = rememberScrollState()
+
+    fun switchProfile() {
+        val profiles = repository.getProfiles()
+        val curIdx = profiles.indexOfFirst { it.id == activeProfile.id }
+        val nextProfile = profiles[(curIdx + 1) % profiles.size]
+        activeProfile = nextProfile
+        repository.saveActiveProfile(nextProfile)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BackgroundDark)
+    ) {
+        // Stitch Top Bar with active profile switcher
+        TvTopBar(
+            currentTab = TvNavTab.AJUSTES,
+            onTabSelected = onTabSelected,
+            activeProfile = activeProfile,
+            onProfileClick = ::switchProfile
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 40.dp, vertical = 16.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = null,
+                            tint = CyanElectric,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "CONTROL REMOTO TV • AJUSTES DIRECTOS",
+                            color = CyanElectric,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Ajustes",
+                        color = TextPrimary,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Profile and TV Info
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier
+                        .background(SurfaceContainer, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tv,
+                        contentDescription = null,
+                        tint = AmberWarm,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Column {
+                        Text(
+                            text = "Perfil Activo: ${activeProfile.name}",
+                            color = TextPrimary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "HDMI • 1080p @ 60Hz",
+                            color = TextMuted,
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Bento Grid: Row 1
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Modo de Proyección Card (ETIQUETAS ELIMINADAS - Requisito A)
+                CleanBentoCard(
+                    modifier = Modifier.weight(0.38f),
+                    title = "Modo de Proyección",
+                    icon = Icons.Default.Flip
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        SettingToggleButton(
+                            modifier = Modifier.weight(1f),
+                            title = "Espejo Vertical",
+                            icon = Icons.Default.VerticalSplit,
+                            isActive = settings.verticalMirror,
+                            onToggle = {
+                                settings = settings.copy(
+                                    verticalMirror = !settings.verticalMirror,
+                                    ceilingMode = !settings.verticalMirror || settings.rotation180
+                                )
+                            }
+                        )
+                        SettingToggleButton(
+                            modifier = Modifier.weight(1f),
+                            title = "Rotación 180°",
+                            icon = Icons.Default.Sync,
+                            isActive = settings.rotation180,
+                            onToggle = {
+                                settings = settings.copy(
+                                    rotation180 = !settings.rotation180,
+                                    ceilingMode = settings.verticalMirror || !settings.rotation180
+                                )
+                            }
+                        )
+                    }
+                }
+
+                // Temas de Color Ópticos (INCLUYE PERGAMINO CLÁSICO APPLE - Requisito B)
+                CleanBentoCard(
+                    modifier = Modifier.weight(0.62f),
+                    title = "Temas de Color Ópticos",
+                    icon = Icons.Default.Palette
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ThemeOptionItem(
+                            modifier = Modifier.weight(1f),
+                            title = "Pergamino",
+                            subtitle = "Papel Clásico",
+                            bgColor = Color(0xFFF4F1EA),
+                            textColor = Color(0xFF2C2A29),
+                            isSelected = settings.theme == ReadingTheme.PERGAMINO,
+                            onClick = { settings = settings.copy(theme = ReadingTheme.PERGAMINO) }
+                        )
+                        ThemeOptionItem(
+                            modifier = Modifier.weight(1f),
+                            title = "OLED Puro",
+                            subtitle = "Negro Total",
+                            bgColor = Color(0xFF000000),
+                            textColor = Color(0xFFE5E1E4),
+                            isSelected = settings.theme == ReadingTheme.OLED_PURE,
+                            onClick = { settings = settings.copy(theme = ReadingTheme.OLED_PURE) }
+                        )
+                        ThemeOptionItem(
+                            modifier = Modifier.weight(1f),
+                            title = "Sepia Cine",
+                            subtitle = "Cálido",
+                            bgColor = Color(0xFF26201A),
+                            textColor = Color(0xFFE6DBCC),
+                            isSelected = settings.theme == ReadingTheme.SEPIA_CINE,
+                            onClick = { settings = settings.copy(theme = ReadingTheme.SEPIA_CINE) }
+                        )
+                        ThemeOptionItem(
+                            modifier = Modifier.weight(1f),
+                            title = "Ámbar Noche",
+                            subtitle = "Cero Azul",
+                            bgColor = Color(0xFF1C140C),
+                            textColor = Color(0xFFFFC664),
+                            isSelected = settings.theme == ReadingTheme.NIGHT_AMBER,
+                            onClick = { settings = settings.copy(theme = ReadingTheme.NIGHT_AMBER) }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Bento Grid: Row 2 (ETIQUETAS ELIMINADAS - Requisito A)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Márgenes de Pantalla
+                CleanBentoCard(
+                    modifier = Modifier.weight(0.33f),
+                    title = "Márgenes de Pantalla",
+                    icon = Icons.Default.DisplaySettings
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        SegmentedOption(
+                            modifier = Modifier.weight(1f),
+                            title = "Estándar (0%)",
+                            isSelected = settings.overscanPercent == 0,
+                            onClick = { settings = settings.copy(overscanPercent = 0) }
+                        )
+                        SegmentedOption(
+                            modifier = Modifier.weight(1f),
+                            title = "Medio (4%)",
+                            isSelected = settings.overscanPercent == 4,
+                            onClick = { settings = settings.copy(overscanPercent = 4) }
+                        )
+                        SegmentedOption(
+                            modifier = Modifier.weight(1f),
+                            title = "Amplio (8%)",
+                            isSelected = settings.overscanPercent == 8,
+                            onClick = { settings = settings.copy(overscanPercent = 8) }
+                        )
+                    }
+                }
+
+                // Tamaño de Fuente
+                CleanBentoCard(
+                    modifier = Modifier.weight(0.33f),
+                    title = "Tamaño de Fuente",
+                    icon = Icons.Default.FormatSize
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        SegmentedOption(
+                            modifier = Modifier.weight(1f),
+                            title = "18px",
+                            isSelected = settings.fontSizeSp == 18,
+                            onClick = { settings = settings.copy(fontSizeSp = 18) }
+                        )
+                        SegmentedOption(
+                            modifier = Modifier.weight(1f),
+                            title = "20px",
+                            isSelected = settings.fontSizeSp == 20,
+                            onClick = { settings = settings.copy(fontSizeSp = 20) }
+                        )
+                        SegmentedOption(
+                            modifier = Modifier.weight(1f),
+                            title = "24px",
+                            isSelected = settings.fontSizeSp == 24,
+                            onClick = { settings = settings.copy(fontSizeSp = 24) }
+                        )
+                    }
+                }
+
+                // Animación 3D (APPLE BOOKS 500ms vs FLUIDO - Requisito C)
+                CleanBentoCard(
+                    modifier = Modifier.weight(0.34f),
+                    title = "Animación 3D de Hoja",
+                    icon = Icons.Default.ViewCarousel
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        SegmentedOption(
+                            modifier = Modifier.weight(1f),
+                            title = "Apple Books (Suave)",
+                            isSelected = settings.curlSpeed == CurlSpeed.APPLE_BOOKS_SMOOTH,
+                            onClick = { settings = settings.copy(curlSpeed = CurlSpeed.APPLE_BOOKS_SMOOTH) }
+                        )
+                        SegmentedOption(
+                            modifier = Modifier.weight(1f),
+                            title = "Fluido (320ms)",
+                            isSelected = settings.curlSpeed == CurlSpeed.FLUID,
+                            onClick = { settings = settings.copy(curlSpeed = CurlSpeed.FLUID) }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Footer Actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (saveFeedback.isNotBlank()) saveFeedback else "ⓘ Aplicación instantánea con 1 solo click del control remoto.",
+                    color = if (saveFeedback.isNotBlank()) CyanElectric else TextMuted,
+                    fontSize = 12.sp
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    TvActionButton(
+                        title = "Conexión OPDS",
+                        icon = Icons.Default.Sync,
+                        isPrimary = false,
+                        onClick = onOpenOpds
+                    )
+                    TvActionButton(
+                        title = "Restaurar",
+                        icon = Icons.Default.RestartAlt,
+                        isPrimary = false,
+                        onClick = {
+                            settings = ReadingSettings()
+                            repository.saveReadingSettings(settings)
+                            saveFeedback = "Ajustes restaurados a valores de fábrica"
+                        }
+                    )
+                    TvActionButton(
+                        title = "Guardar Perfil TV",
+                        icon = Icons.Default.Save,
+                        isPrimary = true,
+                        onClick = {
+                            repository.saveReadingSettings(settings)
+                            saveFeedback = "✓ Perfil de TV guardado correctamente"
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CleanBentoCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    icon: ImageVector,
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(SurfaceContainer)
+            .border(1.dp, Color(0xFF26262A), RoundedCornerShape(14.dp))
+            .padding(16.dp)
+    ) {
+        Column {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = AmberWarm,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = title,
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            content()
+        }
+    }
+}
+
+@Composable
+private fun SettingToggleButton(
+    modifier: Modifier = Modifier,
+    title: String,
+    icon: ImageVector,
+    isActive: Boolean,
+    onToggle: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = modifier
+            .scale(if (isFocused) 1.05f else 1.0f)
+            .shadow(if (isFocused) 10.dp else 0.dp, RoundedCornerShape(10.dp), spotColor = CyanElectric)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (isActive) AmberWarm.copy(alpha = 0.25f) else SurfaceContainerHigh)
+            .border(
+                width = if (isFocused) 2.dp else if (isActive) 1.5.dp else 0.dp,
+                color = if (isFocused) CyanElectric else if (isActive) AmberWarm else Color.Transparent,
+                shape = RoundedCornerShape(10.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { onToggle() }
+            .padding(vertical = 12.dp, horizontal = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isActive) AmberWarm else TextMuted,
+                modifier = Modifier.size(22.dp)
+            )
+            Text(
+                text = title,
+                color = if (isActive) AmberWarm else TextPrimary,
+                fontSize = 12.sp,
+                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Composable
+private fun ThemeOptionItem(
+    modifier: Modifier = Modifier,
+    title: String,
+    subtitle: String,
+    bgColor: Color,
+    textColor: Color,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = modifier
+            .scale(if (isFocused) 1.05f else 1.0f)
+            .shadow(if (isFocused) 10.dp else 0.dp, RoundedCornerShape(10.dp), spotColor = CyanElectric)
+            .clip(RoundedCornerShape(10.dp))
+            .background(bgColor)
+            .border(
+                width = if (isFocused) 2.dp else if (isSelected) 2.dp else 1.dp,
+                color = if (isFocused) CyanElectric else if (isSelected) CyanElectric else Color(0xFF333333),
+                shape = RoundedCornerShape(10.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { onClick() }
+            .padding(10.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(20.dp)
+                    .background(if (isSelected) CyanElectric else Color.Transparent, CircleShape)
+                    .border(1.dp, if (isSelected) CyanElectric else Color(0xFF666666), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = Color(0xFF131315),
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+            Text(
+                text = title,
+                color = textColor,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = subtitle,
+                color = textColor.copy(alpha = 0.7f),
+                fontSize = 10.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun SegmentedOption(
+    modifier: Modifier = Modifier,
+    title: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = modifier
+            .scale(if (isFocused) 1.05f else 1.0f)
+            .shadow(if (isFocused) 8.dp else 0.dp, RoundedCornerShape(8.dp), spotColor = CyanElectric)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isSelected) AmberWarm else SurfaceContainerHigh)
+            .border(
+                width = if (isFocused) 2.dp else 0.dp,
+                color = if (isFocused) CyanElectric else Color.Transparent,
+                shape = RoundedCornerShape(8.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { onClick() }
+            .padding(vertical = 10.dp, horizontal = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = title,
+            color = if (isSelected) Color(0xFF131315) else TextPrimary,
+            fontSize = 11.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+        )
+    }
+}
+
+@Composable
+private fun TvActionButton(
+    title: String,
+    icon: ImageVector,
+    isPrimary: Boolean,
+    onClick: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier
+            .scale(if (isFocused) 1.05f else 1.0f)
+            .shadow(if (isFocused) 10.dp else 0.dp, RoundedCornerShape(10.dp), spotColor = CyanElectric)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (isPrimary || isFocused) AmberWarm else SurfaceContainerHigh)
+            .border(
+                width = if (isFocused) 2.dp else 0.dp,
+                color = if (isFocused) CyanElectric else Color.Transparent,
+                shape = RoundedCornerShape(10.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isPrimary || isFocused) Color(0xFF131315) else TextPrimary,
+            modifier = Modifier.size(16.dp)
+        )
+        Text(
+            text = title,
+            color = if (isPrimary || isFocused) Color(0xFF131315) else TextPrimary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}

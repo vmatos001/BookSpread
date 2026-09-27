@@ -72,6 +72,7 @@ import com.example.calibretv.data.BookRepository
 import com.example.calibretv.data.image.CoverLoader
 import com.example.calibretv.data.image.rememberCoverImage
 import com.example.calibretv.data.model.Book
+import com.example.calibretv.data.opds.OpdsClient
 import com.example.calibretv.data.opds.OpdsFeedContent
 import com.example.calibretv.theme.AmberWarm
 import com.example.calibretv.theme.BackgroundDark
@@ -83,9 +84,45 @@ import com.example.calibretv.theme.TextMuted
 import com.example.calibretv.theme.TextPrimary
 import com.example.calibretv.ui.components.DrawerItem
 import com.example.calibretv.ui.components.TvSideDrawer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+enum class CircleShelfType {
+    ALL,
+    LEVEL,
+    CHARACTER,
+    TAG
+}
+
+data class CircleShelfFilter(
+    val id: String,
+    val title: String,
+    val type: CircleShelfType,
+    val levelNumber: Int? = null,
+    val coverUrl: String? = null,
+    val bookCount: Int = 0
+)
+
+fun getBookDifficultyLevel(book: Book): Int {
+    val levelRegex = Regex("""(?i)(\d+)\s*(?:nivel|level)""")
+    val levelRegex2 = Regex("""(?i)(?:nivel|level)\s*(\d+)""")
+
+    for (s in book.shelves) {
+        levelRegex.find(s)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
+        levelRegex2.find(s)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
+    }
+    for (t in book.tags) {
+        levelRegex.find(t)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
+        levelRegex2.find(t)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
+    }
+    levelRegex.find(book.category)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
+    levelRegex2.find(book.category)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
+
+    return 99
+}
 
 @Composable
 fun LibraryGridScreen(
@@ -99,7 +136,7 @@ fun LibraryGridScreen(
 ) {
     var feedContent by remember { mutableStateOf<OpdsFeedContent?>(null) }
     var isLoading by remember { mutableStateOf(true) }
-    var selectedCategory by remember { mutableStateOf("Todos") }
+    var selectedFilterId by remember { mutableStateOf("all") }
     var activeProfile by remember { mutableStateOf(repository.getActiveProfile()) }
 
     var isDrawerOpen by remember { mutableStateOf(false) }
@@ -108,6 +145,7 @@ fun LibraryGridScreen(
     // Modal state for Book Details
     var showDetailsModal by remember { mutableStateOf(false) }
     var detailsBook by remember { mutableStateOf<Book?>(null) }
+    var modalDescription by remember { mutableStateOf("") }
     val modalReadFocusRequester = remember { FocusRequester() }
 
     BackHandler {
@@ -123,32 +161,112 @@ fun LibraryGridScreen(
         }
     }
 
+    LaunchedEffect(detailsBook) {
+        detailsBook?.let { b ->
+            modalDescription = "Cargando sinopsis..."
+            modalDescription = repository.getOrFetchBookDescription(b)
+        }
+    }
+
     val config = remember { repository.getServerConfig() }
     val authHeader = remember(config) { CoverLoader.buildBasicAuth(config.username, config.password) }
 
-    // Load full catalog
+    // Load full catalog and enrich shelves
     LaunchedEffect(activeProfile) {
         isLoading = true
         val result = repository.getFeed()
         feedContent = result
+        if (config.serverUrl.isNotBlank()) {
+            withContext(Dispatchers.IO) {
+                try {
+                    repository.loadAndApplyShelves(config)
+                    val updated = repository.getCachedBooks()
+                    if (updated.isNotEmpty()) {
+                        feedContent = feedContent?.copy(books = updated)
+                    }
+                } catch (_: Exception) {}
+            }
+        }
         isLoading = false
     }
 
     val allBooks = feedContent?.books ?: emptyList()
 
-    // Distinct tags
-    val filterTags = remember(allBooks) {
-        val extracted = allBooks.flatMap { it.tags.ifEmpty { listOf(it.category) } }
-            .distinct()
-            .filter { it.isNotBlank() && !it.equals("General", ignoreCase = true) }
-        listOf("Todos") + extracted
+    // Circular Shelf Filters (Section A: Netflix Kids style)
+    val circleFilters = remember(allBooks) {
+        val list = mutableListOf<CircleShelfFilter>()
+        // 1. Todos
+        list.add(
+            CircleShelfFilter(
+                id = "all",
+                title = "Todos",
+                type = CircleShelfType.ALL,
+                bookCount = allBooks.size
+            )
+        )
+        // 2. Levels 1 al 5
+        for (lvl in 1..5) {
+            val count = allBooks.count { getBookDifficultyLevel(it) == lvl }
+            list.add(
+                CircleShelfFilter(
+                    id = "level_$lvl",
+                    title = "Nivel $lvl",
+                    type = CircleShelfType.LEVEL,
+                    levelNumber = lvl,
+                    bookCount = count
+                )
+            )
+        }
+        // 3. Calibre-Web Shelves (Characters first, then other shelves)
+        val shelvesFromBooks = allBooks.flatMap { it.shelves }.distinct()
+            .filter { it.isNotBlank() && !it.matches(Regex("""^\d+\s*nivel.*""", RegexOption.IGNORE_CASE)) }
+
+        val charShelves = shelvesFromBooks.filter { OpdsClient.isCharacterShelfName(it) }.sorted()
+        val otherShelves = shelvesFromBooks.filter { !OpdsClient.isCharacterShelfName(it) }.sorted()
+
+        val allShelfNames = if (charShelves.isNotEmpty() || otherShelves.isNotEmpty()) {
+            charShelves + otherShelves
+        } else {
+            allBooks.flatMap { it.tags }
+                .distinct()
+                .filter { it.isNotBlank() && !it.equals("General", ignoreCase = true) && !it.matches(Regex("""^\d+\s*nivel.*""", RegexOption.IGNORE_CASE)) }
+                .sorted()
+        }
+
+        allShelfNames.forEach { shelfName ->
+            val matchingBooks = allBooks.filter { b ->
+                b.shelves.any { it.equals(shelfName, ignoreCase = true) } ||
+                b.tags.any { it.equals(shelfName, ignoreCase = true) } ||
+                b.category.equals(shelfName, ignoreCase = true)
+            }
+            val coverUrl = matchingBooks.firstOrNull { !it.coverUrl.isNullOrBlank() }?.coverUrl
+            list.add(
+                CircleShelfFilter(
+                    id = shelfName,
+                    title = shelfName,
+                    type = CircleShelfType.CHARACTER,
+                    coverUrl = coverUrl,
+                    bookCount = matchingBooks.size
+                )
+            )
+        }
+        list
     }
 
-    val filteredBooks = remember(allBooks, selectedCategory) {
-        if (selectedCategory == "Todos" || selectedCategory.isBlank()) allBooks
-        else allBooks.filter { b ->
-            b.category.equals(selectedCategory, ignoreCase = true) ||
-                    b.tags.any { it.equals(selectedCategory, ignoreCase = true) }
+    val filteredBooks = remember(allBooks, selectedFilterId) {
+        val selected = circleFilters.firstOrNull { it.id == selectedFilterId } ?: circleFilters.first()
+        when (selected.type) {
+            CircleShelfType.ALL -> allBooks
+            CircleShelfType.LEVEL -> allBooks.filter { getBookDifficultyLevel(it) == selected.levelNumber }
+            CircleShelfType.CHARACTER, CircleShelfType.TAG -> {
+                val matches = allBooks.filter { b ->
+                    b.shelves.any { it.equals(selected.id, ignoreCase = true) } ||
+                    b.tags.any { it.equals(selected.id, ignoreCase = true) } ||
+                    b.category.equals(selected.id, ignoreCase = true)
+                }
+                // Sort books from level 1 to 5, then alphabetically
+                matches.sortedWith(compareBy({ getBookDifficultyLevel(it) }, { it.title }))
+            }
         }
     }
 
@@ -286,27 +404,27 @@ fun LibraryGridScreen(
                 }
             }
 
-            // Category Filter Chips
+            // Section A: Netflix Kids Circular Shelves & Difficulty Badges
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(38.dp)
-                    .padding(horizontal = 36.dp),
+                    .height(108.dp)
+                    .padding(horizontal = 32.dp, vertical = 4.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
                 LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    itemsIndexed(filterTags) { index, tag ->
+                    itemsIndexed(circleFilters) { index, filter ->
                         val isFirst = index == 0
-                        GridCapsuleChip(
-                            title = tag,
-                            icon = if (tag == "Todos") Icons.Default.Folder else Icons.Default.Sell,
-                            isSelected = selectedCategory == tag,
+                        NetflixShelfCircleItem(
+                            filter = filter,
+                            isSelected = selectedFilterId == filter.id,
+                            authHeader = authHeader,
                             isFirst = isFirst,
                             onLeftAtBoundary = { isDrawerOpen = true },
-                            onClick = { selectedCategory = tag }
+                            onClick = { selectedFilterId = filter.id }
                         )
                     }
                 }
@@ -484,10 +602,48 @@ fun LibraryGridScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
 
+                                val modalLevel = remember(book) { getBookDifficultyLevel(book) }
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(vertical = 2.dp)
+                                ) {
+                                    if (modalLevel in 1..5) {
+                                        Box(
+                                            modifier = Modifier
+                                                .background(CyanElectric.copy(alpha = 0.20f), RoundedCornerShape(6.dp))
+                                                .border(1.dp, CyanElectric, RoundedCornerShape(6.dp))
+                                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        ) {
+                                            Text(
+                                                text = "⭐ Dificultad: Nivel $modalLevel",
+                                                color = CyanElectric,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                    book.shelves.forEach { shelf ->
+                                        Box(
+                                            modifier = Modifier
+                                                .background(AmberWarm.copy(alpha = 0.20f), RoundedCornerShape(6.dp))
+                                                .border(1.dp, AmberWarm, RoundedCornerShape(6.dp))
+                                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        ) {
+                                            Text(
+                                                text = "🏷 $shelf",
+                                                color = AmberWarm,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+
                                 if (book.tags.isNotEmpty()) {
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        modifier = Modifier.padding(vertical = 4.dp)
+                                        modifier = Modifier.padding(vertical = 2.dp)
                                     ) {
                                         book.tags.take(4).forEach { tag ->
                                             Box(
@@ -495,7 +651,7 @@ fun LibraryGridScreen(
                                                     .background(SurfaceContainerHigh, RoundedCornerShape(6.dp))
                                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                                             ) {
-                                                Text(text = "#$tag", color = CyanElectric, fontSize = 11.sp)
+                                                Text(text = "#$tag", color = CyanElectric.copy(alpha = 0.8f), fontSize = 11.sp)
                                             }
                                         }
                                     }
@@ -509,7 +665,7 @@ fun LibraryGridScreen(
                                 )
 
                                 Text(
-                                    text = book.summary,
+                                    text = if (modalDescription.isNotBlank()) modalDescription else book.summary.ifBlank { "Sin descripción disponible." },
                                     color = TextPrimary.copy(alpha = 0.88f),
                                     fontSize = 13.sp,
                                     lineHeight = 19.sp,
@@ -671,6 +827,33 @@ private fun GridCoverCard(
                 }
             }
 
+            val cardLevel = remember(book) { getBookDifficultyLevel(book) }
+            if (cardLevel in 1..5) {
+                val badgeColor = when (cardLevel) {
+                    1 -> Color(0xFF00E676)
+                    2 -> Color(0xFF00B0FF)
+                    3 -> Color(0xFFFFAB00)
+                    4 -> Color(0xFFFF5722)
+                    5 -> Color(0xFFE040FB)
+                    else -> CyanElectric
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(4.dp)
+                        .background(Color(0xFF09090B).copy(alpha = 0.92f), RoundedCornerShape(4.dp))
+                        .border(0.8.dp, badgeColor.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "Nivel $cardLevel",
+                        color = badgeColor,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+
             if (book.progressPercent > 0) {
                 Box(
                     modifier = Modifier
@@ -702,6 +885,18 @@ private fun GridCoverCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+
+            val shelfOrAuthor = book.shelves.firstOrNull { OpdsClient.isCharacterShelfName(it) } ?: book.shelves.firstOrNull() ?: book.author
+            if (shelfOrAuthor.isNotBlank()) {
+                Text(
+                    text = shelfOrAuthor,
+                    color = AmberWarm,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
             Spacer(modifier = Modifier.height(3.dp))
 
@@ -859,3 +1054,142 @@ private fun GridActionCapsule(
         )
     }
 }
+
+@Composable
+private fun NetflixShelfCircleItem(
+    filter: CircleShelfFilter,
+    isSelected: Boolean,
+    authHeader: String?,
+    isFirst: Boolean = false,
+    onLeftAtBoundary: () -> Unit,
+    onClick: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    val coverBmp = if (filter.type == CircleShelfType.CHARACTER && !filter.coverUrl.isNullOrBlank()) {
+        rememberCoverImage(filter.coverUrl, authHeader)
+    } else null
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(82.dp)
+            .scale(if (isFocused) 1.14f else if (isSelected) 1.05f else 1.0f)
+            .onFocusChanged { isFocused = it.isFocused }
+            .onKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown) {
+                    when (event.key) {
+                        Key.DirectionLeft -> {
+                            if (isFirst) {
+                                onLeftAtBoundary()
+                                true
+                            } else false
+                        }
+                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                            onClick()
+                            true
+                        }
+                        else -> false
+                    }
+                } else false
+            }
+            .focusable()
+            .clickable { onClick() }
+    ) {
+        // Circle Avatar
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .shadow(
+                    elevation = if (isFocused) 12.dp else if (isSelected) 6.dp else 2.dp,
+                    shape = CircleShape,
+                    spotColor = if (isFocused) CyanElectric else AmberWarm
+                )
+                .clip(CircleShape)
+                .background(
+                    when (filter.type) {
+                        CircleShelfType.ALL -> Brush.radialGradient(listOf(Color(0xFF2E2E38), Color(0xFF18181C)))
+                        CircleShelfType.LEVEL -> when (filter.levelNumber) {
+                            1 -> Brush.linearGradient(listOf(Color(0xFF00E676), Color(0xFF1B5E20)))
+                            2 -> Brush.linearGradient(listOf(Color(0xFF00B0FF), Color(0xFF01579B)))
+                            3 -> Brush.linearGradient(listOf(Color(0xFFFFAB00), Color(0xFFFF6D00)))
+                            4 -> Brush.linearGradient(listOf(Color(0xFFFF3D00), Color(0xFFBF360C)))
+                            5 -> Brush.linearGradient(listOf(Color(0xFFE040FB), Color(0xFF4A148C)))
+                            else -> Brush.radialGradient(listOf(Color(0xFF2E2E38), Color(0xFF18181C)))
+                        }
+                        CircleShelfType.CHARACTER -> Brush.radialGradient(listOf(Color(0xFF32323E), Color(0xFF1A1A22)))
+                        CircleShelfType.TAG -> Brush.radialGradient(listOf(Color(0xFF2A2A34), Color(0xFF16161A)))
+                    }
+                )
+                .border(
+                    width = if (isFocused) 3.dp else if (isSelected) 2.5.dp else 1.5.dp,
+                    color = when {
+                        isFocused -> Color.White
+                        isSelected -> CyanElectric
+                        else -> Color(0xFF383842)
+                    },
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            when (filter.type) {
+                CircleShelfType.ALL -> {
+                    Icon(
+                        imageVector = Icons.Default.AutoStories,
+                        contentDescription = "Todos",
+                        tint = if (isFocused) Color.White else AmberWarm,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+                CircleShelfType.LEVEL -> {
+                    Text(
+                        text = "${filter.levelNumber}",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+                CircleShelfType.CHARACTER -> {
+                    if (coverBmp != null) {
+                        Image(
+                            bitmap = coverBmp,
+                            contentDescription = filter.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Text(
+                            text = filter.title.take(2).uppercase(),
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+                CircleShelfType.TAG -> {
+                    Icon(
+                        imageVector = Icons.Default.Sell,
+                        contentDescription = filter.title,
+                        tint = if (isFocused) Color.White else CyanElectric,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = if (filter.type == CircleShelfType.LEVEL) "Nivel ${filter.levelNumber}" else filter.title,
+            color = when {
+                isFocused -> Color.White
+                isSelected -> CyanElectric
+                else -> TextPrimary.copy(alpha = 0.85f)
+            },
+            fontSize = 10.sp,
+            fontWeight = if (isFocused || isSelected) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+

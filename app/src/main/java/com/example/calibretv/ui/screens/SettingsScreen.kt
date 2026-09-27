@@ -3,6 +3,7 @@ package com.example.calibretv.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -56,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import com.example.calibretv.data.update.UpdateManager
+import com.example.calibretv.ui.components.UserProfilesDialog
 import kotlinx.coroutines.launch
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -114,6 +116,7 @@ fun SettingsScreen(
 
     var settings by remember { mutableStateOf(repository.getReadingSettings()) }
     var activeProfile by remember { mutableStateOf(repository.getActiveProfile()) }
+    var showUserProfilesModal by remember { mutableStateOf(false) }
     var saveFeedback by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
 
@@ -160,14 +163,6 @@ fun SettingsScreen(
         }
     }
 
-    fun switchProfile() {
-        val profiles = repository.getProfiles()
-        val curIdx = profiles.indexOfFirst { it.id == activeProfile.id }
-        val nextProfile = profiles[(curIdx + 1) % profiles.size]
-        activeProfile = nextProfile
-        repository.saveActiveProfile(nextProfile)
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -178,7 +173,7 @@ fun SettingsScreen(
             currentTab = TvNavTab.AJUSTES,
             onTabSelected = onTabSelected,
             activeProfile = activeProfile,
-            onProfileClick = ::switchProfile
+            onProfileClick = { showUserProfilesModal = true }
         )
 
         Column(
@@ -222,11 +217,22 @@ fun SettingsScreen(
                 }
 
                 // Profile and TV Info
+                var isProfilePillFocused by remember { mutableStateOf(false) }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier
-                        .background(SurfaceContainer, RoundedCornerShape(12.dp))
+                        .scale(if (isProfilePillFocused) 1.05f else 1.0f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isProfilePillFocused) SurfaceContainerHigh else SurfaceContainer)
+                        .border(
+                            width = if (isProfilePillFocused) 2.dp else 1.dp,
+                            color = if (isProfilePillFocused) CyanElectric else Color.Transparent,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .onFocusChanged { isProfilePillFocused = it.isFocused }
+                        .focusable()
+                        .clickable { showUserProfilesModal = true }
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Icon(
@@ -243,7 +249,7 @@ fun SettingsScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "HDMI • 1080p @ 60Hz",
+                            text = "HDMI • 1080p @ 60Hz • Presiona para cambiar",
                             color = TextMuted,
                             fontSize = 10.sp
                         )
@@ -854,6 +860,21 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (showUserProfilesModal) {
+        UserProfilesDialog(
+            repository = repository,
+            activeProfile = activeProfile,
+            onProfileChanged = {
+                activeProfile = it
+                showUserProfilesModal = false
+            },
+            onDismiss = {
+                showUserProfilesModal = false
+                activeProfile = repository.getActiveProfile()
+            }
+        )
     }
 
     if (showUpdateDialog && availableRelease != null) {

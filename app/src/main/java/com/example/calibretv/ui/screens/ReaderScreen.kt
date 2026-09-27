@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -111,6 +112,11 @@ fun ReaderScreen(
     var flipDirectionForward by remember { mutableStateOf(true) }
     var isLoading by remember { mutableStateOf(true) }
 
+    // Sleep Timer state
+    var sleepTimerSecondsLeft by remember { mutableIntStateOf(0) }
+    var isSleepTimerActive by remember { mutableStateOf(settings.sleepTimerMinutes > 0) }
+    var screenAlpha by remember { mutableStateOf(1f) }
+
     // Navigation and HUD visibility
     var showBottomHud by remember { mutableStateOf(false) } // Triggered by DPAD_DOWN
     var showTopBar by remember { mutableStateOf(false) }    // Triggered by DPAD_UP
@@ -134,6 +140,30 @@ fun ReaderScreen(
         }
         isLoading = false
         readerFocusRequester.requestFocus()
+    }
+
+    // Sleep Timer con atenuación progresiva en los últimos 120 segundos
+    LaunchedEffect(isSleepTimerActive, settings.sleepTimerMinutes) {
+        if (!isSleepTimerActive || settings.sleepTimerMinutes == 0) {
+            sleepTimerSecondsLeft = 0
+            screenAlpha = 1f
+            return@LaunchedEffect
+        }
+        sleepTimerSecondsLeft = settings.sleepTimerMinutes * 60
+        while (sleepTimerSecondsLeft > 0) {
+            kotlinx.coroutines.delay(1000L)
+            sleepTimerSecondsLeft--
+            // Atenuación progresiva en los últimos 120 segundos
+            screenAlpha = if (sleepTimerSecondsLeft <= 120) {
+                (sleepTimerSecondsLeft / 120f).coerceIn(0.05f, 1f)
+            } else {
+                1f
+            }
+        }
+        // Timer expirado: cerrar lector
+        screenAlpha = 0f
+        kotlinx.coroutines.delay(800L)
+        onBack()
     }
 
     // Dynamic responsive re-pagination whenever font size or overscan changes!
@@ -198,6 +228,7 @@ fun ReaderScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .graphicsLayer { alpha = screenAlpha }
             .background(BackgroundDark)
             .focusRequester(readerFocusRequester)
             .focusable()
@@ -746,6 +777,31 @@ fun ReaderScreen(
                                     }
                                     settings = settings.copy(overscanPercent = nextMargin)
                                     repository.saveReadingSettings(settings)
+                                }
+                            )
+
+                            // Botón Sleep Timer
+                            val timerLabel = when {
+                                !isSleepTimerActive -> "⏱ Sleep"
+                                sleepTimerSecondsLeft > 60 -> "⏱ ${sleepTimerSecondsLeft / 60}m"
+                                else -> "⏱ ${sleepTimerSecondsLeft}s"
+                            }
+                            StitchHudButton(
+                                title = timerLabel,
+                                icon = Icons.Filled.Timer,
+                                isPrimary = isSleepTimerActive,
+                                onClick = {
+                                    // Ciclo: Off → 15min → 30min → 45min → 60min → Off
+                                    val nextMinutes = when (settings.sleepTimerMinutes) {
+                                        0 -> 15
+                                        15 -> 30
+                                        30 -> 45
+                                        45 -> 60
+                                        else -> 0
+                                    }
+                                    settings = settings.copy(sleepTimerMinutes = nextMinutes)
+                                    repository.saveReadingSettings(settings)
+                                    isSleepTimerActive = nextMinutes > 0
                                 }
                             )
                         }

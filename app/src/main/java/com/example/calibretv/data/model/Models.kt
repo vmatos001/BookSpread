@@ -46,7 +46,8 @@ data class ReadingSettings(
     val curlSpeed: CurlSpeed = CurlSpeed.APPLE_BOOKS_SMOOTH,
     val theme: ReadingTheme = ReadingTheme.PERGAMINO,
     val fontSizeSp: Int = 20,
-    val overscanPercent: Int = 0
+    val overscanPercent: Int = 0,
+    val sleepTimerMinutes: Int = 0  // 0 = desactivado, 15, 30, 45, 60
 )
 
 @Serializable

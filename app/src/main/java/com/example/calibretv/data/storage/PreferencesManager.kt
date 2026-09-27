@@ -77,7 +77,8 @@ class PreferencesManager(context: Context) {
             curlSpeed = speed,
             theme = theme,
             fontSizeSp = prefs.getInt("font_size", 20),
-            overscanPercent = prefs.getInt("overscan", 0)
+            overscanPercent = prefs.getInt("overscan", 0),
+            sleepTimerMinutes = prefs.getInt("sleep_timer", 0)
         )
     }
 
@@ -90,6 +91,7 @@ class PreferencesManager(context: Context) {
             .putString("read_theme", settings.theme.name)
             .putInt("font_size", settings.fontSizeSp)
             .putInt("overscan", settings.overscanPercent)
+            .putInt("sleep_timer", settings.sleepTimerMinutes)
             .apply()
     }
 

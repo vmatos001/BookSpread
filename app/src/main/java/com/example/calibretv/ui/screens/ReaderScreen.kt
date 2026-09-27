@@ -78,6 +78,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.calibretv.data.BookRepository
+import com.example.calibretv.data.sound.SoundManager
 import com.example.calibretv.data.tts.TtsController
 import com.example.calibretv.data.epub.EpubParser
 import com.example.calibretv.data.epub.PageContent
@@ -138,9 +139,13 @@ fun ReaderScreen(
     val currentSentence by ttsController.currentSentenceIndex.collectAsState()
     val currentSentenceText by ttsController.currentSentenceText.collectAsState()
     val isTtsPlaying by ttsController.isPlaying.collectAsState()
+    val soundManager = remember { SoundManager(context) }
 
     DisposableEffect(Unit) {
-        onDispose { ttsController.destroy() }
+        onDispose {
+            ttsController.destroy()
+            soundManager.release()
+        }
     }
 
     // Load parsed book once
@@ -207,6 +212,9 @@ fun ReaderScreen(
         val nextIdx = if (forward) currentSpreadIndex + 1 else currentSpreadIndex - 1
         if (nextIdx !in spreads.indices) return
         ttsController.stop()
+        if (settings.pageSoundEnabled) {
+            soundManager.playPageTurn()
+        }
 
         isFlipping = true
         flipDirectionForward = forward

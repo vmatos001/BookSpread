@@ -62,7 +62,8 @@ data class ReadingSettings(
     val readingFont: ReadingFont = ReadingFont.SERIF_SYSTEM,
     val spineDepth3D: Float = 0.5f, // 0.0 = plano, 1.0 = tomo grueso
     val ttsEnabled: Boolean = false,
-    val ttsSpeedRate: Float = 1.0f // 0.5 = lento, 1.0 = normal, 1.5 = rápido
+    val ttsSpeedRate: Float = 1.0f, // 0.5 = lento, 1.0 = normal, 1.5 = rápido
+    val pageSoundEnabled: Boolean = true
 )
 
 @Serializable

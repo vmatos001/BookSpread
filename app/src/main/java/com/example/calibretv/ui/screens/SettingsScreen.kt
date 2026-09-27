@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.VerticalSplit
 import androidx.compose.material.icons.filled.ViewCarousel
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -440,6 +442,59 @@ fun SettingsScreen(
                                 onClick = { settings = settings.copy(spineDepth3D = 1.0f) }
                             )
                         }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Sonido de Paso de Página (Foley)
+            CleanBentoCard(
+                modifier = Modifier.fillMaxWidth(),
+                title = "Efectos de Sonido (Paso de Página)",
+                icon = Icons.Filled.VolumeUp
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Sonido Foley de papel al pasar la hoja",
+                            color = TextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Reproduce un crujido orgánico aleatorizado que simula el roce físico del papel.",
+                            color = TextMuted,
+                            fontSize = 11.sp
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.width(260.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        SegmentedOption(
+                            modifier = Modifier.weight(1f),
+                            title = "🔊 Activado",
+                            isSelected = settings.pageSoundEnabled,
+                            onClick = {
+                                settings = settings.copy(pageSoundEnabled = true)
+                                repository.saveReadingSettings(settings)
+                            }
+                        )
+                        SegmentedOption(
+                            modifier = Modifier.weight(1f),
+                            title = "🔇 Desactivado",
+                            isSelected = !settings.pageSoundEnabled,
+                            onClick = {
+                                settings = settings.copy(pageSoundEnabled = false)
+                                repository.saveReadingSettings(settings)
+                            }
+                        )
                     }
                 }
             }

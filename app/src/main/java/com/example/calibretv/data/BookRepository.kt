@@ -13,8 +13,15 @@ import com.example.calibretv.data.model.UserProfile
 import com.example.calibretv.data.opds.OpdsClient
 import com.example.calibretv.data.opds.OpdsFeedContent
 import com.example.calibretv.data.opds.SslHelper
+import com.example.calibretv.data.storage.AppDatabase
+import com.example.calibretv.data.storage.BookEntity
+import com.example.calibretv.data.storage.FavoriteEntity
+import com.example.calibretv.data.storage.ReadingProgressEntity
 import com.example.calibretv.data.storage.PreferencesManager
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
@@ -23,6 +30,46 @@ import java.net.URL
 
 class BookRepository(private val context: Context) {
     private val prefs = PreferencesManager(context)
+    private val db = AppDatabase.getInstance(context)
+    private val bookDao = db.bookDao()
+    private val progressDao = db.progressDao()
+    private val favoriteDao = db.favoriteDao()
+
+    private fun BookEntity.toBook(): Book {
+        val tagList = try {
+            val arr = org.json.JSONArray(tags)
+            (0 until arr.length()).map { arr.getString(it) }
+        } catch (_: Exception) {
+            emptyList()
+        }
+        return Book(
+            id = id,
+            title = title,
+            author = author,
+            coverUrl = coverUrl,
+            epubUrl = epubUrl,
+            summary = summary,
+            category = category,
+            tags = tagList,
+            progressPercent = progressPercent
+        )
+    }
+
+    private fun Book.toEntity(lastReadSpread: Int = 0): BookEntity {
+        val tagsJson = org.json.JSONArray(tags).toString()
+        return BookEntity(
+            id = id,
+            title = title,
+            author = author,
+            coverUrl = coverUrl,
+            epubUrl = epubUrl,
+            summary = summary,
+            category = category,
+            tags = tagsJson,
+            progressPercent = progressPercent,
+            lastReadSpread = lastReadSpread
+        )
+    }
 
     fun getServerConfig(): ServerConfig = prefs.getServerConfig()
     fun saveServerConfig(config: ServerConfig) = prefs.saveServerConfig(config)
@@ -36,18 +83,70 @@ class BookRepository(private val context: Context) {
     fun saveProfiles(profiles: List<UserProfile>) = prefs.saveProfiles(profiles)
     fun createProfile(name: String, colorHex: String = "#FFA000"): UserProfile = prefs.createProfile(name, colorHex)
 
-    fun isFavorite(bookId: String): Boolean = prefs.isFavorite(prefs.getActiveProfile().id, bookId)
-    fun toggleFavorite(bookId: String): Boolean = prefs.toggleFavorite(prefs.getActiveProfile().id, bookId)
-    fun getFavoriteBookIds(): Set<String> = prefs.getFavoriteBookIds(prefs.getActiveProfile().id)
-    fun getFavoriteBooks(): List<Book> {
-        val favIds = getFavoriteBookIds()
-        return prefs.getCachedBooks().filter { favIds.contains(it.id) }
+    fun isFavorite(bookId: String): Boolean = runBlocking(Dispatchers.IO) {
+        favoriteDao.isFavorite(prefs.getActiveProfile().id, bookId)
     }
-    fun getCachedBooks(): List<Book> = prefs.getCachedBooks()
 
-    fun getBookProgress(bookId: String): Int = prefs.getBookProgress(bookId)
-    fun getBookProgressPercent(bookId: String): Int = prefs.getBookProgressPercent(bookId)
-    fun saveBookProgress(bookId: String, spreadIndex: Int, percent: Int = 0) = prefs.saveBookProgress(bookId, spreadIndex, percent)
+    fun toggleFavorite(bookId: String): Boolean = runBlocking(Dispatchers.IO) {
+        val profileId = prefs.getActiveProfile().id
+        val isFav = favoriteDao.isFavorite(profileId, bookId)
+        if (isFav) {
+            favoriteDao.remove(profileId, bookId)
+            false
+        } else {
+            favoriteDao.add(FavoriteEntity(profileId, bookId))
+            true
+        }
+    }
+
+    fun getFavoriteBookIds(): Set<String> = runBlocking(Dispatchers.IO) {
+        favoriteDao.getFavoriteIds(prefs.getActiveProfile().id).toSet()
+    }
+
+    fun getFavoriteBooks(): List<Book> = runBlocking(Dispatchers.IO) {
+        val favIds = favoriteDao.getFavoriteIds(prefs.getActiveProfile().id)
+        if (favIds.isEmpty()) emptyList() else bookDao.getBooksByIds(favIds).map { it.toBook() }
+    }
+
+    fun getCachedBooks(): List<Book> = runBlocking(Dispatchers.IO) {
+        val entities = bookDao.getAllBooks()
+        if (entities.isEmpty()) {
+            val legacy = prefs.getCachedBooks()
+            if (legacy.isNotEmpty()) {
+                bookDao.upsertBooks(legacy.map { it.toEntity() })
+                return@runBlocking legacy
+            }
+        }
+        entities.map { it.toBook() }
+    }
+
+    suspend fun saveCachedBooks(books: List<Book>) = withContext(Dispatchers.IO) {
+        bookDao.upsertBooks(books.map { it.toEntity() })
+    }
+
+    fun getBookProgress(bookId: String): Int = runBlocking(Dispatchers.IO) {
+        progressDao.getSpreadIndex(prefs.getActiveProfile().id, bookId) ?: prefs.getBookProgress(bookId)
+    }
+
+    fun getBookProgressPercent(bookId: String): Int = runBlocking(Dispatchers.IO) {
+        progressDao.getPercent(prefs.getActiveProfile().id, bookId) ?: prefs.getBookProgressPercent(bookId)
+    }
+
+    fun saveBookProgress(bookId: String, spreadIndex: Int, percent: Int = 0) {
+        val profileId = prefs.getActiveProfile().id
+        prefs.saveBookProgress(bookId, spreadIndex, percent)
+        CoroutineScope(Dispatchers.IO).launch {
+            progressDao.upsert(
+                ReadingProgressEntity(
+                    profileId = profileId,
+                    bookId = bookId,
+                    spreadIndex = spreadIndex,
+                    percent = percent,
+                    lastReadAt = System.currentTimeMillis()
+                )
+            )
+        }
+    }
 
     fun getLastOpenedBook(): Book? = prefs.getLastOpenedBook()
     fun saveLastOpenedBook(book: Book) = prefs.saveLastOpenedBook(book)
@@ -84,10 +183,10 @@ class BookRepository(private val context: Context) {
             if (feed.books.isNotEmpty()) {
                 // Incremental sync: Preserve user reading progress for existing books
                 val mergedBooks = feed.books.map { newBook ->
-                    val savedPct = prefs.getBookProgressPercent(newBook.id)
+                    val savedPct = getBookProgressPercent(newBook.id)
                     if (savedPct > 0) newBook.copy(progressPercent = savedPct) else newBook
                 }
-                prefs.saveCachedBooks(mergedBooks)
+                saveCachedBooks(mergedBooks)
                 Result.success(feed.copy(books = mergedBooks))
             } else {
                 Result.success(feed)
@@ -114,7 +213,7 @@ class BookRepository(private val context: Context) {
         }
 
         // 2. Load from cached library if available (Lightweight metadata - covers & synopses)
-        val cached = prefs.getCachedBooks()
+        val cached = getCachedBooks()
         if (cached.isNotEmpty()) {
             val allTags = cached.flatMap { it.tags.ifEmpty { listOf(it.category) } }
                 .distinct()

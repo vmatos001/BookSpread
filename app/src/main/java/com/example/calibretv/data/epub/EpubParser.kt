@@ -176,7 +176,28 @@ object EpubParser {
     private fun parseHtmlToItems(html: String, imageMap: Map<String, File>): List<RawContentItem> {
         val items = mutableListOf<RawContentItem>()
 
-        val sanitizedHtml = html
+        // ── PASO 0: Eliminar encabezados XML/DOCTYPE/HTML antes de parsear ──────────
+        val bodyContent = run {
+            // 1. Quitar declaración XML: <?xml ... ?>
+            var cleaned = html.replace(Regex("""<\?xml[^?]*\?>""", RegexOption.IGNORE_CASE), "")
+            // 2. Quitar DOCTYPE: <!DOCTYPE ... > (puede ser multilínea)
+            cleaned = cleaned.replace(Regex("""(?s)<!DOCTYPE[^>]*>""", RegexOption.IGNORE_CASE), "")
+            // 3. Quitar comentarios HTML: <!-- ... -->
+            cleaned = cleaned.replace(Regex("""(?s)<!--.*?-->"""), "")
+            // 4. Extraer solo el contenido dentro de <body>...</body> si existe
+            val bodyMatch = Regex("""(?is)<body[^>]*>(.*?)</body>""").find(cleaned)
+            if (bodyMatch != null) {
+                bodyMatch.groupValues[1]
+            } else {
+                // Si no hay <body>, quitar las etiquetas <html>, <head> y su contenido
+                cleaned = cleaned.replace(Regex("""(?is)<head[^>]*>.*?</head>"""), "")
+                cleaned = cleaned.replace(Regex("""(?i)</?html[^>]*>"""), "")
+                cleaned
+            }
+        }
+        // ── FIN PASO 0 ──────────────────────────────────────────────────────────────
+
+        val sanitizedHtml = bodyContent
             .replace(Regex("""(?s)<script.*?</script>"""), "")
             .replace(Regex("""(?s)<style.*?</style>"""), "")
 

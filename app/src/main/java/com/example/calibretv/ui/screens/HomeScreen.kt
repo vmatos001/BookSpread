@@ -672,7 +672,7 @@ fun HomeScreen(
                                     }
                                 )
                                 HomeActionCapsule(
-                                    title = if (repository.isFavorite(book.id)) "★ En Favoritos" else "☆ Añadir a Favoritos",
+                                    title = if (repository.isFavorite(book.id)) "En Favoritos" else "Añadir a Favoritos",
                                     icon = Icons.Default.Star,
                                     isPrimary = repository.isFavorite(book.id),
                                     onClick = {
@@ -807,7 +807,7 @@ private fun HomeHeroSection(
                     onClick = onRead
                 )
                 HomeActionCapsule(
-                    title = if (isFavorite) "★ Favorito" else "☆ Favorito",
+                    title = if (isFavorite) "En Favoritos" else "Favorito",
                     icon = Icons.Default.Star,
                     isPrimary = isFavorite,
                     onClick = onToggleFavorite
@@ -1301,7 +1301,7 @@ private fun FavoriteEmptyShelf(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Selecciona cualquier libro y presiona '★ Favorito' para agregarlo a tu colección rápida.",
+                        text = "Selecciona cualquier libro y presiona 'Favorito' para agregarlo a tu colección rápida.",
                         color = TextMuted,
                         fontSize = 12.sp
                     )

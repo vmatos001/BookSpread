@@ -35,6 +35,14 @@ enum class ReadingTheme {
 }
 
 @Serializable
+enum class ReadingFont {
+    SERIF_SYSTEM,     // Fuente serif del sistema (actual)
+    OPEN_DYSLEXIC,    // Para personas con dislexia (requiere asset)
+    GEORGIA_LIKE,     // Georgia/serif elegante
+    MONOSPACE,        // Ancho fijo para código/poesía
+}
+
+@Serializable
 enum class CurlSpeed {
     APPLE_BOOKS_SMOOTH, // 500ms física suave de hoja de papel
     FLUID               // 320ms paso fluido
@@ -50,7 +58,9 @@ data class ReadingSettings(
     val fontSizeSp: Int = 20,
     val overscanPercent: Int = 0,
     val sleepTimerMinutes: Int = 0, // 0 = desactivado, 15, 30, 45, 60
-    val readerBrightness: Float = 1.0f // 0.1f a 1.0f, control de brillo interno
+    val readerBrightness: Float = 1.0f, // 0.1f a 1.0f, control de brillo interno
+    val readingFont: ReadingFont = ReadingFont.SERIF_SYSTEM,
+    val spineDepth3D: Float = 0.5f  // 0.0 = plano, 1.0 = tomo grueso
 )
 
 @Serializable

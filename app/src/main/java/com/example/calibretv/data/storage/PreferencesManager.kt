@@ -67,6 +67,12 @@ class PreferencesManager(context: Context) {
             CurlSpeed.APPLE_BOOKS_SMOOTH
         }
 
+        val fontName = prefs.getString("reading_font", com.example.calibretv.data.model.ReadingFont.SERIF_SYSTEM.name) ?: com.example.calibretv.data.model.ReadingFont.SERIF_SYSTEM.name
+        val font = try {
+            com.example.calibretv.data.model.ReadingFont.valueOf(fontName)
+        } catch (_: Exception) {
+            com.example.calibretv.data.model.ReadingFont.SERIF_SYSTEM
+        }
         val mirror = prefs.getBoolean("vertical_mirror", false)
         val rot = prefs.getBoolean("rotation_180", false)
 
@@ -79,7 +85,9 @@ class PreferencesManager(context: Context) {
             fontSizeSp = prefs.getInt("font_size", 20),
             overscanPercent = prefs.getInt("overscan", 0),
             sleepTimerMinutes = prefs.getInt("sleep_timer", 0),
-            readerBrightness = prefs.getFloat("reader_brightness", 1.0f)
+            readerBrightness = prefs.getFloat("reader_brightness", 1.0f),
+            readingFont = font,
+            spineDepth3D = prefs.getFloat("spine_depth_3d", 0.5f)
         )
     }
 
@@ -94,6 +102,8 @@ class PreferencesManager(context: Context) {
             .putInt("overscan", settings.overscanPercent)
             .putInt("sleep_timer", settings.sleepTimerMinutes)
             .putFloat("reader_brightness", settings.readerBrightness)
+            .putString("reading_font", settings.readingFont.name)
+            .putFloat("spine_depth_3d", settings.spineDepth3D)
             .apply()
     }
 

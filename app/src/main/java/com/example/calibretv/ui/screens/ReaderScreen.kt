@@ -82,11 +82,13 @@ import com.example.calibretv.data.epub.ParsedBook
 import com.example.calibretv.data.image.rememberLocalImage
 import com.example.calibretv.data.model.Book
 import com.example.calibretv.data.model.CurlSpeed
+import com.example.calibretv.data.model.ReadingFont
 import com.example.calibretv.data.model.ReadingSettings
 import com.example.calibretv.data.model.ReadingTheme
 import com.example.calibretv.theme.AmberWarm
 import com.example.calibretv.theme.BackgroundDark
 import com.example.calibretv.theme.CyanElectric
+import com.example.calibretv.theme.FontProvider
 import com.example.calibretv.theme.SurfaceContainerHigh
 import com.example.calibretv.theme.TextMuted
 import com.example.calibretv.theme.TextPrimary
@@ -349,7 +351,8 @@ fun ReaderScreen(
                             fontSizeSp = settings.fontSizeSp,
                             textColor = pageText,
                             accentColor = accentColor,
-                            isLeft = true
+                            isLeft = true,
+                            readingFont = settings.readingFont
                         )
                     }
 
@@ -370,7 +373,8 @@ fun ReaderScreen(
                             fontSizeSp = settings.fontSizeSp,
                             textColor = pageText,
                             accentColor = accentColor,
-                            isLeft = false
+                            isLeft = false,
+                            readingFont = settings.readingFont
                         )
                     }
                 }
@@ -422,7 +426,8 @@ fun ReaderScreen(
                                     fontSizeSp = settings.fontSizeSp,
                                     textColor = pageText,
                                     accentColor = accentColor,
-                                    isLeft = false
+                                    isLeft = false,
+                                    readingFont = settings.readingFont
                                 )
 
                                 // Cylindrical curved paper fold shadow on outer edge
@@ -446,7 +451,7 @@ fun ReaderScreen(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .graphicsLayer { rotationY = 180f }
-                                ) {
+                                 ) {
                                     nextSpread?.let { ns ->
                                         PageColumn(
                                             content = ns.leftPage,
@@ -454,7 +459,8 @@ fun ReaderScreen(
                                             fontSizeSp = settings.fontSizeSp,
                                             textColor = pageText,
                                             accentColor = accentColor,
-                                            isLeft = true
+                                            isLeft = true,
+                                            readingFont = settings.readingFont
                                         )
                                     }
                                 }
@@ -520,7 +526,8 @@ fun ReaderScreen(
                                         fontSizeSp = settings.fontSizeSp,
                                         textColor = pageText,
                                         accentColor = accentColor,
-                                        isLeft = false
+                                        isLeft = false,
+                                        readingFont = settings.readingFont
                                     )
                                 }
                             } else {
@@ -535,7 +542,8 @@ fun ReaderScreen(
                                         fontSizeSp = settings.fontSizeSp,
                                         textColor = pageText,
                                         accentColor = accentColor,
-                                        isLeft = true
+                                        isLeft = true,
+                                        readingFont = settings.readingFont
                                     )
                                 }
                             }
@@ -543,18 +551,19 @@ fun ReaderScreen(
                     }
                 }
 
-                // 3. Central Spine Crease Shadow (Depth of real physical book)
+                // 3. Central Spine Crease Shadow (Depth of real physical book based on spineDepth3D)
+                val shadowIntensity = (settings.spineDepth3D * 0.7f).coerceIn(0.1f, 1f)
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .width(44.dp)
+                        .width((30 + (settings.spineDepth3D * 28)).dp)
                         .align(Alignment.Center)
                         .background(
                             Brush.horizontalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    Color.Black.copy(alpha = 0.38f),
-                                    Color.Black.copy(alpha = 0.14f),
+                                    Color.Black.copy(alpha = shadowIntensity * 0.55f),
+                                    Color.Black.copy(alpha = shadowIntensity * 0.20f),
                                     Color.Transparent
                                 )
                             )
@@ -843,7 +852,8 @@ private fun PageColumn(
     fontSizeSp: Int,
     textColor: Color,
     accentColor: Color,
-    isLeft: Boolean
+    isLeft: Boolean,
+    readingFont: ReadingFont = ReadingFont.SERIF_SYSTEM
 ) {
     Column(
         modifier = Modifier
@@ -898,7 +908,7 @@ private fun PageColumn(
                                     fontSize = (fontSizeSp * 2.3).sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = accentColor,
-                                    fontFamily = FontFamily.Serif,
+                                    fontFamily = FontProvider.getFontFamily(readingFont),
                                     lineHeight = (fontSizeSp * 2.3).sp,
                                     modifier = Modifier.padding(end = 10.dp, top = 2.dp)
                                 )
@@ -907,7 +917,7 @@ private fun PageColumn(
                                     fontSize = fontSizeSp.sp,
                                     lineHeight = (fontSizeSp * 1.55).sp,
                                     color = textColor,
-                                    fontFamily = FontFamily.Serif,
+                                    fontFamily = FontProvider.getFontFamily(readingFont),
                                     textAlign = TextAlign.Justify,
                                     modifier = Modifier.weight(1f)
                                 )
@@ -919,7 +929,7 @@ private fun PageColumn(
                                 lineHeight = (fontSizeSp * 1.6).sp,
                                 fontWeight = FontWeight.Bold,
                                 color = accentColor,
-                                fontFamily = FontFamily.Serif,
+                                fontFamily = FontProvider.getFontFamily(readingFont),
                                 modifier = Modifier.padding(vertical = 4.dp)
                             )
                         } else {
@@ -928,7 +938,7 @@ private fun PageColumn(
                                 fontSize = fontSizeSp.sp,
                                 lineHeight = (fontSizeSp * 1.55).sp,
                                 color = textColor,
-                                fontFamily = FontFamily.Serif,
+                                fontFamily = FontProvider.getFontFamily(readingFont),
                                 textAlign = TextAlign.Justify
                             )
                         }

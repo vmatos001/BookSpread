@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.calibretv.data.BookRepository
 import com.example.calibretv.data.model.CurlSpeed
+import com.example.calibretv.data.model.ReadingFont
 import com.example.calibretv.data.model.ReadingSettings
 import com.example.calibretv.data.model.ReadingTheme
 import com.example.calibretv.theme.AmberWarm
@@ -372,6 +373,73 @@ fun SettingsScreen(
                             isSelected = settings.curlSpeed == CurlSpeed.FLUID,
                             onClick = { settings = settings.copy(curlSpeed = CurlSpeed.FLUID) }
                         )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Tipografía y Profundidad 3D Card (Fase 6)
+            CleanBentoCard(
+                modifier = Modifier.fillMaxWidth(),
+                title = "Tipografía y Profundidad 3D",
+                icon = Icons.Default.FormatSize
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Fuente
+                    Column(modifier = Modifier.weight(0.6f)) {
+                        Text("Catálogo de Fuentes", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SegmentedOption(
+                                modifier = Modifier.weight(1f),
+                                title = "Serif Sistema",
+                                isSelected = settings.readingFont == ReadingFont.SERIF_SYSTEM,
+                                onClick = { settings = settings.copy(readingFont = ReadingFont.SERIF_SYSTEM) }
+                            )
+                            SegmentedOption(
+                                modifier = Modifier.weight(1f),
+                                title = "OpenDyslexic",
+                                isSelected = settings.readingFont == ReadingFont.OPEN_DYSLEXIC,
+                                onClick = { settings = settings.copy(readingFont = ReadingFont.OPEN_DYSLEXIC) }
+                            )
+                            SegmentedOption(
+                                modifier = Modifier.weight(1f),
+                                title = "Monospace",
+                                isSelected = settings.readingFont == ReadingFont.MONOSPACE,
+                                onClick = { settings = settings.copy(readingFont = ReadingFont.MONOSPACE) }
+                            )
+                        }
+                    }
+
+                    // Profundidad 3D del Lomo
+                    Column(modifier = Modifier.weight(0.4f)) {
+                        val depthPct = (settings.spineDepth3D * 100).toInt()
+                        Text("Profundidad 3D Lomo: $depthPct%", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SegmentedOption(
+                                modifier = Modifier.weight(1f),
+                                title = "0% Plano",
+                                isSelected = settings.spineDepth3D < 0.2f,
+                                onClick = { settings = settings.copy(spineDepth3D = 0.0f) }
+                            )
+                            SegmentedOption(
+                                modifier = Modifier.weight(1f),
+                                title = "50% Estándar",
+                                isSelected = settings.spineDepth3D in 0.2f..0.7f,
+                                onClick = { settings = settings.copy(spineDepth3D = 0.5f) }
+                            )
+                            SegmentedOption(
+                                modifier = Modifier.weight(1f),
+                                title = "100% Grueso",
+                                isSelected = settings.spineDepth3D > 0.7f,
+                                onClick = { settings = settings.copy(spineDepth3D = 1.0f) }
+                            )
+                        }
                     }
                 }
             }

@@ -239,12 +239,20 @@ fun ReaderScreen(
                             Key.DirectionDown -> {
                                 showBottomHud = true
                                 showTopBar = false
+                                scope.launch {
+                                    kotlinx.coroutines.delay(80L) // Espera una recomposición
+                                    try { hudInitialFocusRequester.requestFocus() } catch (_: Exception) {}
+                                }
                                 true
                             }
                             // UP on remote reveals the Top Navigation Bar
                             Key.DirectionUp -> {
                                 showTopBar = true
                                 showBottomHud = false
+                                scope.launch {
+                                    kotlinx.coroutines.delay(80L)
+                                    try { topBarFocusRequester.requestFocus() } catch (_: Exception) {}
+                                }
                                 true
                             }
                             Key.Back, Key.Escape -> {

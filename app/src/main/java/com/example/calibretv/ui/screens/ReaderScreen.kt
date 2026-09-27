@@ -16,6 +16,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
@@ -730,14 +732,14 @@ fun ReaderScreen(
                         )
                     }
 
-                    // Bottom Row: Action Controls with Single-Click
-                    Row(
+                    // Bottom Row: barra única con scroll horizontal — todos los botones en una línea
+                    LazyRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
-                        // Navigation buttons
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        item {
                             StitchHudButton(
                                 title = "‹ Anterior",
                                 icon = Icons.Default.ChevronLeft,
@@ -745,6 +747,8 @@ fun ReaderScreen(
                                 modifier = Modifier.focusRequester(hudInitialFocusRequester),
                                 onClick = { turnPage(forward = false) }
                             )
+                        }
+                        item {
                             StitchHudButton(
                                 title = "Salto de Página",
                                 icon = Icons.Default.MenuBook,
@@ -755,6 +759,8 @@ fun ReaderScreen(
                                     repository.saveBookProgress(book.id, jumpIdx)
                                 }
                             )
+                        }
+                        item {
                             StitchHudButton(
                                 title = "Siguiente ›",
                                 icon = Icons.Default.ChevronRight,
@@ -762,9 +768,8 @@ fun ReaderScreen(
                                 onClick = { turnPage(forward = true) }
                             )
                         }
-
-                        // Optics and Mode buttons (Tamaño Fuente, Tema Hoja, Márgenes)
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        item { Spacer(Modifier.width(12.dp)) }
+                        item {
                             StitchHudButton(
                                 title = "Fuente (${settings.fontSizeSp}sp)",
                                 icon = Icons.Default.FormatSize,
@@ -781,6 +786,8 @@ fun ReaderScreen(
                                     repository.saveReadingSettings(settings)
                                 }
                             )
+                        }
+                        item {
                             val themeName = when (settings.theme) {
                                 ReadingTheme.PERGAMINO -> "Pergamino"
                                 ReadingTheme.OLED_PURE -> "OLED Puro"
@@ -792,7 +799,7 @@ fun ReaderScreen(
                             StitchHudButton(
                                 title = "Tema: $themeName",
                                 icon = Icons.Default.Palette,
-                                isPrimary = true,
+                                isPrimary = false,
                                 onClick = {
                                     val nextTheme = when (settings.theme) {
                                         ReadingTheme.PERGAMINO -> ReadingTheme.OLED_PURE
@@ -806,6 +813,8 @@ fun ReaderScreen(
                                     repository.saveReadingSettings(settings)
                                 }
                             )
+                        }
+                        item {
                             val marginPct = settings.overscanPercent
                             StitchHudButton(
                                 title = "Márgenes: $marginPct%",
@@ -821,11 +830,11 @@ fun ReaderScreen(
                                     repository.saveReadingSettings(settings)
                                 }
                             )
-
-                            // Botón Brillo Lector
+                        }
+                        item {
                             val brightnessPercent = (settings.readerBrightness * 100).toInt()
                             StitchHudButton(
-                                title = "Brillo: $brightnessPercent%",
+                                title = "☀ $brightnessPercent%",
                                 icon = Icons.Filled.Brightness4,
                                 isPrimary = settings.readerBrightness < 1.0f,
                                 onClick = {
@@ -839,8 +848,8 @@ fun ReaderScreen(
                                     repository.saveReadingSettings(settings)
                                 }
                             )
-
-                            // Botón Sleep Timer
+                        }
+                        item {
                             val timerLabel = when {
                                 !isSleepTimerActive -> "⏱ Sleep"
                                 sleepTimerSecondsLeft > 60 -> "⏱ ${sleepTimerSecondsLeft / 60}m"
@@ -851,7 +860,6 @@ fun ReaderScreen(
                                 icon = Icons.Filled.Timer,
                                 isPrimary = isSleepTimerActive,
                                 onClick = {
-                                    // Ciclo: Off → 15min → 30min → 45min → 60min → Off
                                     val nextMinutes = when (settings.sleepTimerMinutes) {
                                         0 -> 15
                                         15 -> 30
@@ -864,8 +872,8 @@ fun ReaderScreen(
                                     isSleepTimerActive = nextMinutes > 0
                                 }
                             )
-
-                            // Botón TTS (Lectura en Voz Alta)
+                        }
+                        item {
                             StitchHudButton(
                                 title = if (isTtsPlaying) "⏸ Pausa" else "▶ Leer",
                                 icon = Icons.Filled.RecordVoiceOver,

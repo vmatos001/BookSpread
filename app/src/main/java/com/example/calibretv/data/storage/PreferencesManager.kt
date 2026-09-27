@@ -90,7 +90,15 @@ class PreferencesManager(context: Context) {
             spineDepth3D = prefs.getFloat("spine_depth_3d", 0.5f),
             ttsEnabled = prefs.getBoolean("tts_enabled", false),
             ttsSpeedRate = prefs.getFloat("tts_speed_rate", 1.0f),
-            pageSoundEnabled = prefs.getBoolean("page_sound_enabled", true)
+            pageSoundEnabled = prefs.getBoolean("page_sound_enabled", true),
+            ambientSound = try {
+                com.example.calibretv.data.model.AmbientSound.valueOf(
+                    prefs.getString("ambient_sound", com.example.calibretv.data.model.AmbientSound.NONE.name) ?: com.example.calibretv.data.model.AmbientSound.NONE.name
+                )
+            } catch (_: Exception) {
+                com.example.calibretv.data.model.AmbientSound.NONE
+            },
+            ambientVolume = prefs.getFloat("ambient_volume", 0.4f)
         )
     }
 
@@ -110,6 +118,8 @@ class PreferencesManager(context: Context) {
             .putBoolean("tts_enabled", settings.ttsEnabled)
             .putFloat("tts_speed_rate", settings.ttsSpeedRate)
             .putBoolean("page_sound_enabled", settings.pageSoundEnabled)
+            .putString("ambient_sound", settings.ambientSound.name)
+            .putFloat("ambient_volume", settings.ambientVolume)
             .apply()
     }
 

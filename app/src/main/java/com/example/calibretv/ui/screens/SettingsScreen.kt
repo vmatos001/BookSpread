@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.DisplaySettings
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.RecordVoiceOver
@@ -70,6 +71,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.calibretv.data.BookRepository
+import com.example.calibretv.data.model.AmbientSound
 import com.example.calibretv.data.model.CurlSpeed
 import com.example.calibretv.data.model.ReadingFont
 import com.example.calibretv.data.model.ReadingSettings
@@ -697,6 +699,59 @@ fun SettingsScreen(
                                 isSelected = settings.readerBrightness == brightness,
                                 onClick = {
                                     settings = settings.copy(readerBrightness = brightness)
+                                    repository.saveReadingSettings(settings)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Sonido Ambiental
+            CleanBentoCard(
+                modifier = Modifier.fillMaxWidth(),
+                title = "Sonido Ambiental de Lectura",
+                icon = Icons.Filled.MusicNote
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Reproduce ambiente sonoro continuo durante la lectura",
+                                color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Diseñado para TV en sala. Cicla entre sonidos desde el HUD del lector.",
+                                color = TextMuted, fontSize = 11.sp
+                            )
+                        }
+                    }
+                    // Selector de tipo de sonido
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            AmbientSound.NONE to "🔕 Ninguno",
+                            AmbientSound.RAIN to "🌧 Lluvia",
+                            AmbientSound.FIREPLACE to "🔥 Chimenea",
+                            AmbientSound.OCEAN to "🌊 Mar",
+                            AmbientSound.CAFE to "☕ Café",
+                            AmbientSound.FOREST to "🌲 Bosque"
+                        ).forEach { (sound, label) ->
+                            SegmentedOption(
+                                modifier = Modifier.weight(1f),
+                                title = label,
+                                isSelected = settings.ambientSound == sound,
+                                onClick = {
+                                    settings = settings.copy(ambientSound = sound)
                                     repository.saveReadingSettings(settings)
                                 }
                             )

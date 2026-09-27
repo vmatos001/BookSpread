@@ -49,6 +49,16 @@ enum class CurlSpeed {
 }
 
 @Serializable
+enum class AmbientSound {
+    NONE,       // Sin sonido
+    RAIN,       // Lluvia suave
+    FIREPLACE,  // Chimenea crepitando
+    OCEAN,      // Olas del mar
+    CAFE,       // Cafetería con murmullos
+    FOREST      // Bosque / naturaleza
+}
+
+@Serializable
 data class ReadingSettings(
     val verticalMirror: Boolean = false,
     val rotation180: Boolean = false,
@@ -63,7 +73,9 @@ data class ReadingSettings(
     val spineDepth3D: Float = 0.5f, // 0.0 = plano, 1.0 = tomo grueso
     val ttsEnabled: Boolean = false,
     val ttsSpeedRate: Float = 1.0f, // 0.5 = lento, 1.0 = normal, 1.5 = rápido
-    val pageSoundEnabled: Boolean = true
+    val pageSoundEnabled: Boolean = true,
+    val ambientSound: AmbientSound = AmbientSound.NONE,
+    val ambientVolume: Float = 0.4f // 0.0f a 1.0f
 )
 
 @Serializable

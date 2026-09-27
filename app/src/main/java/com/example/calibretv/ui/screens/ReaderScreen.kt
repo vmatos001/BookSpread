@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Timer
@@ -80,6 +81,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.calibretv.data.BookRepository
+import com.example.calibretv.data.sound.AmbientSoundManager
 import com.example.calibretv.data.sound.SoundManager
 import com.example.calibretv.data.tts.TtsController
 import com.example.calibretv.data.epub.EpubParser
@@ -88,6 +90,7 @@ import com.example.calibretv.data.epub.PageItem
 import com.example.calibretv.data.epub.PageSpread
 import com.example.calibretv.data.epub.ParsedBook
 import com.example.calibretv.data.image.rememberLocalImage
+import com.example.calibretv.data.model.AmbientSound
 import com.example.calibretv.data.model.Book
 import com.example.calibretv.data.model.CurlSpeed
 import com.example.calibretv.data.model.ReadingFont
@@ -142,12 +145,18 @@ fun ReaderScreen(
     val currentSentenceText by ttsController.currentSentenceText.collectAsState()
     val isTtsPlaying by ttsController.isPlaying.collectAsState()
     val soundManager = remember { SoundManager(context) }
+    val ambientManager = remember { AmbientSoundManager(context) }
 
     DisposableEffect(Unit) {
         onDispose {
             ttsController.destroy()
             soundManager.release()
+            ambientManager.release()
         }
+    }
+
+    LaunchedEffect(settings.ambientSound, settings.ambientVolume) {
+        ambientManager.play(settings.ambientSound, settings.ambientVolume)
     }
 
     // Load parsed book once
@@ -889,6 +898,33 @@ fun ReaderScreen(
                                             ttsController.readPage(pageText, settings.ttsSpeedRate)
                                         }
                                     }
+                                }
+                            )
+                        }
+                        item {
+                            val ambientLabel = when (settings.ambientSound) {
+                                AmbientSound.NONE -> "🔕 Ambiente"
+                                AmbientSound.RAIN -> "🌧 Lluvia"
+                                AmbientSound.FIREPLACE -> "🔥 Chimenea"
+                                AmbientSound.OCEAN -> "🌊 Mar"
+                                AmbientSound.CAFE -> "☕ Café"
+                                AmbientSound.FOREST -> "🌲 Bosque"
+                            }
+                            StitchHudButton(
+                                title = ambientLabel,
+                                icon = Icons.Filled.MusicNote,
+                                isPrimary = settings.ambientSound != AmbientSound.NONE,
+                                onClick = {
+                                    val nextSound = when (settings.ambientSound) {
+                                        AmbientSound.NONE -> AmbientSound.RAIN
+                                        AmbientSound.RAIN -> AmbientSound.FIREPLACE
+                                        AmbientSound.FIREPLACE -> AmbientSound.OCEAN
+                                        AmbientSound.OCEAN -> AmbientSound.CAFE
+                                        AmbientSound.CAFE -> AmbientSound.FOREST
+                                        AmbientSound.FOREST -> AmbientSound.NONE
+                                    }
+                                    settings = settings.copy(ambientSound = nextSound)
+                                    repository.saveReadingSettings(settings)
                                 }
                             )
                         }

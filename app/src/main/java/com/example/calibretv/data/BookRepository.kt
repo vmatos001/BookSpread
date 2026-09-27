@@ -1,6 +1,7 @@
 package com.example.calibretv.data
 
 import android.content.Context
+import com.example.calibretv.data.comic.ComicParser
 import com.example.calibretv.data.epub.EpubParser
 import com.example.calibretv.data.epub.PageSpread
 import com.example.calibretv.data.epub.ParsedBook
@@ -296,6 +297,18 @@ class BookRepository(private val context: Context) {
     ): List<PageSpread> = withContext(Dispatchers.IO) {
         val raw = loadRawBook(book)
         return@withContext EpubParser.paginate(raw, fontSizeSp, overscanPercent)
+    }
+
+    suspend fun loadComic(book: Book): ComicParser.ParsedComic = withContext(Dispatchers.IO) {
+        val cacheFile = File(context.cacheDir, "book_${book.id.hashCode()}.cbz")
+        if (!cacheFile.exists() || cacheFile.length() == 0L) {
+            val url = book.epubUrl ?: return@withContext ComicParser.ParsedComic(book.title, emptyList())
+            val downloaded = downloadEpub(url, cacheFile)
+            if (!downloaded) {
+                return@withContext ComicParser.ParsedComic(book.title, emptyList())
+            }
+        }
+        ComicParser.parseCbz(cacheFile, context.cacheDir)
     }
 
     private fun downloadEpub(epubUrl: String, destFile: File): Boolean {

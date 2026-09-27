@@ -9,6 +9,7 @@ import androidx.navigation3.ui.NavDisplay
 import com.example.calibretv.data.BookRepository
 import com.example.calibretv.data.model.Book
 import com.example.calibretv.ui.components.TvNavTab
+import com.example.calibretv.ui.screens.ComicReaderScreen
 import com.example.calibretv.ui.screens.HomeScreen
 import com.example.calibretv.ui.screens.LibraryGridScreen
 import com.example.calibretv.ui.screens.ReaderScreen
@@ -25,17 +26,33 @@ fun MainNavigation() {
     // Start with branded Splash screen
     val backStack = rememberNavBackStack(SplashNavKey)
 
-    fun navigateToReaderForLastBook() {
-        val lastBook = repository.getLastOpenedBook() ?: repository.getCachedBooks().firstOrNull()
-        if (lastBook != null && backStack.lastOrNull() !is ReaderNavKey) {
+    fun openBook(book: Book) {
+        val isComic = book.epubUrl?.let { it.endsWith(".cbz", ignoreCase = true) || it.endsWith(".cbr", ignoreCase = true) } == true
+        if (isComic) {
             backStack.add(
-                ReaderNavKey(
-                    bookId = lastBook.id,
-                    bookTitle = lastBook.title,
-                    bookAuthor = lastBook.author,
-                    epubUrl = lastBook.epubUrl
+                ComicReaderNavKey(
+                    bookId = book.id,
+                    bookTitle = book.title,
+                    bookAuthor = book.author,
+                    epubUrl = book.epubUrl
                 )
             )
+        } else {
+            backStack.add(
+                ReaderNavKey(
+                    bookId = book.id,
+                    bookTitle = book.title,
+                    bookAuthor = book.author,
+                    epubUrl = book.epubUrl
+                )
+            )
+        }
+    }
+
+    fun navigateToReaderForLastBook() {
+        val lastBook = repository.getLastOpenedBook() ?: repository.getCachedBooks().firstOrNull()
+        if (lastBook != null && backStack.lastOrNull() !is ReaderNavKey && backStack.lastOrNull() !is ComicReaderNavKey) {
+            openBook(lastBook)
         } else if (lastBook == null && backStack.lastOrNull() !is HomeNavKey) {
             backStack.add(HomeNavKey)
         }
@@ -89,16 +106,7 @@ fun MainNavigation() {
             entry<HomeNavKey> {
                 HomeScreen(
                     repository = repository,
-                    onBookSelected = { book ->
-                        backStack.add(
-                            ReaderNavKey(
-                                bookId = book.id,
-                                bookTitle = book.title,
-                                bookAuthor = book.author,
-                                epubUrl = book.epubUrl
-                            )
-                        )
-                    },
+                    onBookSelected = ::openBook,
                     onNavigateToLibrary = {
                         if (backStack.lastOrNull() !is LibraryNavKey) {
                             backStack.add(LibraryNavKey())
@@ -120,16 +128,7 @@ fun MainNavigation() {
             entry<LibraryNavKey> {
                 LibraryGridScreen(
                     repository = repository,
-                    onBookSelected = { book ->
-                        backStack.add(
-                            ReaderNavKey(
-                                bookId = book.id,
-                                bookTitle = book.title,
-                                bookAuthor = book.author,
-                                epubUrl = book.epubUrl
-                            )
-                        )
-                    },
+                    onBookSelected = ::openBook,
                     onNavigateToHome = {
                         if (backStack.lastOrNull() !is HomeNavKey) {
                             backStack.add(HomeNavKey)
@@ -189,6 +188,23 @@ fun MainNavigation() {
                         backStack.removeLastOrNull()
                     },
                     onTabSelected = ::navigateToTab
+                )
+            }
+            entry<ComicReaderNavKey> { key ->
+                val book = remember(key) {
+                    Book(
+                        id = key.bookId,
+                        title = key.bookTitle,
+                        author = key.bookAuthor,
+                        epubUrl = key.epubUrl
+                    )
+                }
+                ComicReaderScreen(
+                    book = book,
+                    repository = repository,
+                    onBack = {
+                        backStack.removeLastOrNull()
+                    }
                 )
             }
         }

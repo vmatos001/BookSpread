@@ -757,6 +757,25 @@ private fun FullCoverCard(
                 }
             }
 
+            val isComic = book.epubUrl?.let { it.endsWith(".cbz", ignoreCase = true) || it.endsWith(".cbr", ignoreCase = true) } == true
+            val isManga = isComic && (book.title.contains("manga", ignoreCase = true) || book.tags.any { it.contains("manga", ignoreCase = true) } || book.category.contains("manga", ignoreCase = true))
+            if (isComic) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(5.dp)
+                        .background(Color(0xFF0A0A0C).copy(alpha = 0.88f), RoundedCornerShape(5.dp))
+                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = if (isManga) "🗾 Manga" else "📚 Cómic",
+                        color = AmberWarm,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
             // Progress badge
             if (book.progressPercent > 0) {
                 Box(

@@ -29,7 +29,9 @@ enum class ReadingTheme {
     PERGAMINO,   // #F4F1EA fondo papel clásico, #2C2A29 texto editorial (Estilo Apple Books)
     OLED_PURE,   // #000000 negro absoluto, #E5E1E4 texto nítido
     SEPIA_CINE,  // #26201A fondo cálido cinematográfico, #E6DBCC texto
-    NIGHT_AMBER  // #0D0D0D fondo noche, #FFC664 / #C29B38 texto ámbar (cero luz azul)
+    NIGHT_AMBER, // #0D0D0D fondo noche, #FFC664 / #C29B38 texto ámbar (cero luz azul)
+    PROYECTOR_BLANCO, // Fondo blanco puro para proyectores con fondo claro
+    CINE_OSCURO       // Negro absoluto + texto ámbar muy tenue para sala oscura
 }
 
 @Serializable
@@ -47,7 +49,8 @@ data class ReadingSettings(
     val theme: ReadingTheme = ReadingTheme.PERGAMINO,
     val fontSizeSp: Int = 20,
     val overscanPercent: Int = 0,
-    val sleepTimerMinutes: Int = 0  // 0 = desactivado, 15, 30, 45, 60
+    val sleepTimerMinutes: Int = 0, // 0 = desactivado, 15, 30, 45, 60
+    val readerBrightness: Float = 1.0f // 0.1f a 1.0f, control de brillo interno
 )
 
 @Serializable

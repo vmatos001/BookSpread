@@ -78,7 +78,8 @@ class PreferencesManager(context: Context) {
             theme = theme,
             fontSizeSp = prefs.getInt("font_size", 20),
             overscanPercent = prefs.getInt("overscan", 0),
-            sleepTimerMinutes = prefs.getInt("sleep_timer", 0)
+            sleepTimerMinutes = prefs.getInt("sleep_timer", 0),
+            readerBrightness = prefs.getFloat("reader_brightness", 1.0f)
         )
     }
 
@@ -92,6 +93,7 @@ class PreferencesManager(context: Context) {
             .putInt("font_size", settings.fontSizeSp)
             .putInt("overscan", settings.overscanPercent)
             .putInt("sleep_timer", settings.sleepTimerMinutes)
+            .putFloat("reader_brightness", settings.readerBrightness)
             .apply()
     }
 

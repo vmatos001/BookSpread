@@ -259,6 +259,24 @@ fun SettingsScreen(
                             isSelected = settings.theme == ReadingTheme.NIGHT_AMBER,
                             onClick = { settings = settings.copy(theme = ReadingTheme.NIGHT_AMBER) }
                         )
+                        ThemeOptionItem(
+                            modifier = Modifier.weight(1f),
+                            title = "Proyector",
+                            subtitle = "Blanco",
+                            bgColor = Color(0xFFFFFFFF),
+                            textColor = Color(0xFF1A1A1A),
+                            isSelected = settings.theme == ReadingTheme.PROYECTOR_BLANCO,
+                            onClick = { settings = settings.copy(theme = ReadingTheme.PROYECTOR_BLANCO) }
+                        )
+                        ThemeOptionItem(
+                            modifier = Modifier.weight(1f),
+                            title = "Cine Oscuro",
+                            subtitle = "Ámbar Tenue",
+                            bgColor = Color(0xFF000000),
+                            textColor = Color(0xFF8B7355),
+                            isSelected = settings.theme == ReadingTheme.CINE_OSCURO,
+                            onClick = { settings = settings.copy(theme = ReadingTheme.CINE_OSCURO) }
+                        )
                     }
                 }
             }

@@ -223,12 +223,14 @@ fun ReaderScreen(
         ReadingTheme.OLED_PURE -> Triple(Color(0xFF000000), Color(0xFFE5E1E4), CyanElectric)
         ReadingTheme.SEPIA_CINE -> Triple(Color(0xFF26201A), Color(0xFFE6DBCC), AmberWarm)
         ReadingTheme.NIGHT_AMBER -> Triple(Color(0xFF0D0D0D), Color(0xFFFFC664), AmberWarm)
+        ReadingTheme.PROYECTOR_BLANCO -> Triple(Color(0xFFFFFFFF), Color(0xFF1A1A1A), Color(0xFF0066CC))
+        ReadingTheme.CINE_OSCURO -> Triple(Color(0xFF000000), Color(0xFF8B7355), Color(0xFF6B4F2A))
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer { alpha = screenAlpha }
+            .graphicsLayer { alpha = screenAlpha * settings.readerBrightness }
             .background(BackgroundDark)
             .focusRequester(readerFocusRequester)
             .focusable()
@@ -748,6 +750,8 @@ fun ReaderScreen(
                                 ReadingTheme.OLED_PURE -> "OLED Puro"
                                 ReadingTheme.SEPIA_CINE -> "Sepia"
                                 ReadingTheme.NIGHT_AMBER -> "Ámbar Noche"
+                                ReadingTheme.PROYECTOR_BLANCO -> "Proyector"
+                                ReadingTheme.CINE_OSCURO -> "Cine Oscuro"
                             }
                             StitchHudButton(
                                 title = "Tema: $themeName",
@@ -758,7 +762,9 @@ fun ReaderScreen(
                                         ReadingTheme.PERGAMINO -> ReadingTheme.OLED_PURE
                                         ReadingTheme.OLED_PURE -> ReadingTheme.SEPIA_CINE
                                         ReadingTheme.SEPIA_CINE -> ReadingTheme.NIGHT_AMBER
-                                        ReadingTheme.NIGHT_AMBER -> ReadingTheme.PERGAMINO
+                                        ReadingTheme.NIGHT_AMBER -> ReadingTheme.PROYECTOR_BLANCO
+                                        ReadingTheme.PROYECTOR_BLANCO -> ReadingTheme.CINE_OSCURO
+                                        ReadingTheme.CINE_OSCURO -> ReadingTheme.PERGAMINO
                                     }
                                     settings = settings.copy(theme = nextTheme)
                                     repository.saveReadingSettings(settings)
@@ -776,6 +782,24 @@ fun ReaderScreen(
                                         else -> 0
                                     }
                                     settings = settings.copy(overscanPercent = nextMargin)
+                                    repository.saveReadingSettings(settings)
+                                }
+                            )
+
+                            // Botón Brillo Lector
+                            val brightnessPercent = (settings.readerBrightness * 100).toInt()
+                            StitchHudButton(
+                                title = "Brillo: $brightnessPercent%",
+                                icon = Icons.Filled.Brightness4,
+                                isPrimary = settings.readerBrightness < 1.0f,
+                                onClick = {
+                                    val nextBrightness = when {
+                                        settings.readerBrightness > 0.85f -> 0.70f
+                                        settings.readerBrightness > 0.60f -> 0.50f
+                                        settings.readerBrightness > 0.40f -> 0.30f
+                                        else -> 1.0f
+                                    }
+                                    settings = settings.copy(readerBrightness = nextBrightness)
                                     repository.saveReadingSettings(settings)
                                 }
                             )

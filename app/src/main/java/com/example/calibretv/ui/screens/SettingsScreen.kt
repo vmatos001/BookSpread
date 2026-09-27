@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,13 +35,26 @@ import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.VerticalSplit
 import androidx.compose.material.icons.filled.ViewCarousel
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.calibretv.data.update.UpdateManager
+import kotlinx.coroutines.launch
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,12 +88,72 @@ fun SettingsScreen(
     onOpenOpds: () -> Unit = {},
     onSaved: () -> Unit
 ) {
-    androidx.activity.compose.BackHandler { onSaved() }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val (currentVersionName, currentVersionCode) = remember { UpdateManager.getCurrentVersion(context) }
+    var updateCheckStatus by remember { mutableStateOf("") }
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+    var availableRelease by remember { mutableStateOf<UpdateManager.ReleaseInfo?>(null) }
+    var isDownloadingUpdate by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableIntStateOf(0) }
+    var downloadDetails by remember { mutableStateOf("") }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+
+    androidx.activity.compose.BackHandler {
+        if (showUpdateDialog && !isDownloadingUpdate) {
+            showUpdateDialog = false
+        } else {
+            onSaved()
+        }
+    }
 
     var settings by remember { mutableStateOf(repository.getReadingSettings()) }
     var activeProfile by remember { mutableStateOf(repository.getActiveProfile()) }
     var saveFeedback by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
+
+    fun checkUpdate() {
+        scope.launch {
+            isCheckingUpdate = true
+            updateCheckStatus = "Buscando en GitHub..."
+            when (val res = UpdateManager.checkForUpdate(context)) {
+                is UpdateManager.CheckResult.UpdateAvailable -> {
+                    availableRelease = res.release
+                    updateCheckStatus = "¡Nueva versión ${res.release.tagName} disponible!"
+                    showUpdateDialog = true
+                }
+                is UpdateManager.CheckResult.UpToDate -> {
+                    availableRelease = null
+                    updateCheckStatus = "✓ CalibroTV está actualizado (${res.currentVersion})"
+                }
+                is UpdateManager.CheckResult.Error -> {
+                    availableRelease = null
+                    updateCheckStatus = "⚠️ ${res.message}"
+                }
+            }
+            isCheckingUpdate = false
+        }
+    }
+
+    fun startDownloadAndInstall(release: UpdateManager.ReleaseInfo) {
+        scope.launch {
+            isDownloadingUpdate = true
+            downloadProgress = 0
+            val apk = UpdateManager.downloadApk(context, release) { pct, cur, tot ->
+                downloadProgress = pct
+                val curMb = String.format(java.util.Locale.US, "%.1f", cur / 1048576.0)
+                val totMb = String.format(java.util.Locale.US, "%.1f", tot / 1048576.0)
+                downloadDetails = "$pct% ($curMb MB / $totMb MB)"
+            }
+            isDownloadingUpdate = false
+            if (apk != null && apk.exists()) {
+                showUpdateDialog = false
+                UpdateManager.installApk(context, apk)
+            } else {
+                updateCheckStatus = "⚠️ Error al descargar el archivo APK."
+            }
+        }
+    }
 
     fun switchProfile() {
         val profiles = repository.getProfiles()
@@ -499,6 +573,57 @@ fun SettingsScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Actualizaciones de Software (OTA)
+            CleanBentoCard(
+                modifier = Modifier.fillMaxWidth(),
+                title = "Actualizaciones de Software (OTA)",
+                icon = Icons.Filled.SystemUpdate
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Versión instalada: v$currentVersionName (Build $currentVersionCode)",
+                            color = TextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (updateCheckStatus.isNotBlank()) updateCheckStatus else "Verifica directamente desde GitHub si hay nuevas versiones de CalibroTV disponibles.",
+                            color = if (availableRelease != null) CyanElectric else TextMuted,
+                            fontSize = 11.sp
+                        )
+                    }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (availableRelease != null) {
+                            TvActionButton(
+                                title = "Instalar v${availableRelease?.tagName?.removePrefix("v") ?: ""}",
+                                icon = Icons.Filled.CloudDownload,
+                                isPrimary = true,
+                                onClick = { showUpdateDialog = true }
+                            )
+                        } else {
+                            TvActionButton(
+                                title = if (isCheckingUpdate) "Buscando..." else "Buscar Actualización",
+                                icon = Icons.Filled.Sync,
+                                isPrimary = false,
+                                onClick = { checkUpdate() }
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
 
             // Footer Actions
@@ -539,6 +664,148 @@ fun SettingsScreen(
                             saveFeedback = "✓ Perfil de TV guardado correctamente"
                         }
                     )
+                }
+            }
+        }
+    }
+
+    if (showUpdateDialog && availableRelease != null) {
+        val rel = availableRelease!!
+        Dialog(
+            onDismissRequest = {
+                if (!isDownloadingUpdate) {
+                    showUpdateDialog = false
+                }
+            },
+            properties = DialogProperties(
+                dismissOnBackPress = !isDownloadingUpdate,
+                dismissOnClickOutside = !isDownloadingUpdate
+            )
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(520.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(SurfaceContainer)
+                    .border(1.5.dp, CyanElectric, RoundedCornerShape(18.dp))
+                    .padding(24.dp)
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(AmberWarm.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.CloudDownload,
+                                contentDescription = null,
+                                tint = AmberWarm,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "Nueva versión: ${rel.tagName}",
+                                color = TextPrimary,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "CalibroTV OTA Update",
+                                color = TextMuted,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    if (rel.changelog.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 140.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(BackgroundDark)
+                                .border(1.dp, Color(0xFF26262A), RoundedCornerShape(10.dp))
+                                .padding(12.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            Text(
+                                text = rel.changelog,
+                                color = TextPrimary,
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+
+                    if (isDownloadingUpdate) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Descargando actualización...",
+                                    color = CyanElectric,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "$downloadProgress%",
+                                    color = AmberWarm,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            LinearProgressIndicator(
+                                progress = { downloadProgress / 100f },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp)),
+                                color = CyanElectric,
+                                trackColor = SurfaceContainerHigh
+                            )
+                            if (downloadDetails.isNotBlank()) {
+                                Text(
+                                    text = downloadDetails,
+                                    color = TextMuted,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TvActionButton(
+                                title = "Cancelar",
+                                icon = Icons.Filled.Close,
+                                isPrimary = false,
+                                onClick = { showUpdateDialog = false }
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            TvActionButton(
+                                title = "Descargar e Instalar",
+                                icon = Icons.Filled.CloudDownload,
+                                isPrimary = true,
+                                onClick = { startDownloadAndInstall(rel) }
+                            )
+                        }
+                    }
                 }
             }
         }

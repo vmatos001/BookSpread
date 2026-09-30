@@ -37,10 +37,14 @@ class TtsController(context: Context) : TextToSpeech.OnInitListener {
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying
 
+    private val _isEngineAvailable = MutableStateFlow(true)
+    val isEngineAvailable: StateFlow<Boolean> = _isEngineAvailable
+
     private var sentences = listOf<String>()
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
+            _isEngineAvailable.value = true
             val ttsEngine = tts ?: return
             try {
                 // Configure speech audio attributes for media playback
@@ -80,6 +84,7 @@ class TtsController(context: Context) : TextToSpeech.OnInitListener {
                 Log.e(TAG, "Error configuring TTS onInit", e)
             }
         } else {
+            _isEngineAvailable.value = false
             Log.e(TAG, "Failed to initialize TextToSpeech engine, status: $status")
         }
     }

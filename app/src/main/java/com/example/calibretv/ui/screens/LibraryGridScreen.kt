@@ -107,20 +107,18 @@ data class CircleShelfFilter(
 )
 
 fun getBookDifficultyLevel(book: Book): Int {
-    val levelRegex = Regex("""(?i)(\d+)\s*(?:nivel|level)""")
-    val levelRegex2 = Regex("""(?i)(?:nivel|level)\s*(\d+)""")
+    val levelRegex = Regex("""(?i)(\d+)\s*(?:nivel|level|grado|grade|l)?""")
+    val levelRegex2 = Regex("""(?i)(?:nivel|level|grado|grade|l)?\s*(\d+)""")
 
-    for (s in book.shelves) {
-        levelRegex.find(s)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
-        levelRegex2.find(s)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
+    val allTokens = book.shelves + book.tags + listOf(book.category)
+    for (token in allTokens) {
+        val trimmed = token.trim()
+        if (trimmed in listOf("1", "2", "3", "4", "5")) {
+            return trimmed.toInt()
+        }
+        levelRegex.find(trimmed)?.groupValues?.get(1)?.toIntOrNull()?.let { if (it in 1..5) return it }
+        levelRegex2.find(trimmed)?.groupValues?.get(1)?.toIntOrNull()?.let { if (it in 1..5) return it }
     }
-    for (t in book.tags) {
-        levelRegex.find(t)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
-        levelRegex2.find(t)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
-    }
-    levelRegex.find(book.category)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
-    levelRegex2.find(book.category)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
-
     return 99
 }
 
@@ -132,6 +130,7 @@ fun LibraryGridScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToOpds: () -> Unit,
     onNavigateToReader: () -> Unit,
+    onNavigateToWifiImport: () -> Unit = {},
     onBack: () -> Unit
 ) {
     var feedContent by remember { mutableStateOf<OpdsFeedContent?>(null) }
@@ -147,6 +146,7 @@ fun LibraryGridScreen(
     var detailsBook by remember { mutableStateOf<Book?>(null) }
     var modalDescription by remember { mutableStateOf("") }
     val modalReadFocusRequester = remember { FocusRequester() }
+    val bookFocusRequesters = remember { mutableMapOf<String, FocusRequester>() }
 
     BackHandler {
         if (showDetailsModal) showDetailsModal = false
@@ -158,6 +158,14 @@ fun LibraryGridScreen(
     LaunchedEffect(showDetailsModal) {
         if (showDetailsModal) {
             modalReadFocusRequester.requestFocus()
+        } else if (detailsBook != null) {
+            val lastId = detailsBook?.id
+            if (lastId != null) {
+                kotlinx.coroutines.delay(80L)
+                try {
+                    bookFocusRequesters[lastId]?.requestFocus()
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -204,37 +212,10 @@ fun LibraryGridScreen(
                 bookCount = allBooks.size
             )
         )
-        // 2. Niveles del 1 al 5
-        for (lvl in 1..5) {
-            val count = allBooks.count { getBookDifficultyLevel(it) == lvl }
-            list.add(
-                CircleShelfFilter(
-                    id = "level_$lvl",
-                    title = "Nivel $lvl",
-                    type = CircleShelfType.LEVEL,
-                    levelNumber = lvl,
-                    bookCount = count
-                )
-            )
-        }
-        // 3. Estantería Inglés
-        val englishBooks = allBooks.filter { b ->
-            b.shelves.any { it.contains("ingl", ignoreCase = true) || it.contains("english", ignoreCase = true) } ||
-            b.tags.any { it.contains("ingl", ignoreCase = true) || it.contains("english", ignoreCase = true) } ||
-            b.category.contains("ingl", ignoreCase = true) || b.category.contains("english", ignoreCase = true)
-        }
-        list.add(
-            CircleShelfFilter(
-                id = "ingles",
-                title = "Inglés",
-                type = CircleShelfType.TAG,
-                coverUrl = englishBooks.firstOrNull { !it.coverUrl.isNullOrBlank() }?.coverUrl,
-                bookCount = englishBooks.size
-            )
-        )
-        // 4. Shelves de Personajes de TV (desde Calibre-Web)
+
+        // 2. Shelves de Personajes de TV (desde Calibre-Web, ubicados entre TODOS y NIVEL 1)
         val shelvesFromBooks = allBooks.flatMap { it.shelves }.distinct()
-            .filter { it.isNotBlank() && !it.matches(Regex("""^\d+\s*nivel.*""", RegexOption.IGNORE_CASE)) && !it.contains("ingl", ignoreCase = true) }
+            .filter { it.isNotBlank() && !it.matches(Regex("""^\d+\s*nivel.*""", RegexOption.IGNORE_CASE)) && !it.contains("ingl", ignoreCase = true) && !it.matches(Regex("""^[1-5]$""")) }
 
         val charShelves = shelvesFromBooks.filter { OpdsClient.isCharacterShelfName(it) }.sorted()
 
@@ -253,6 +234,37 @@ fun LibraryGridScreen(
                 )
             )
         }
+
+        // 3. Niveles del 1 al 5
+        for (lvl in 1..5) {
+            val count = allBooks.count { getBookDifficultyLevel(it) == lvl }
+            list.add(
+                CircleShelfFilter(
+                    id = "level_$lvl",
+                    title = "Nivel $lvl",
+                    type = CircleShelfType.LEVEL,
+                    levelNumber = lvl,
+                    bookCount = count
+                )
+            )
+        }
+
+        // 4. Estantería Inglés
+        val englishBooks = allBooks.filter { b ->
+            b.shelves.any { it.contains("ingl", ignoreCase = true) || it.contains("english", ignoreCase = true) } ||
+            b.tags.any { it.contains("ingl", ignoreCase = true) || it.contains("english", ignoreCase = true) } ||
+            b.category.contains("ingl", ignoreCase = true) || b.category.contains("english", ignoreCase = true)
+        }
+        list.add(
+            CircleShelfFilter(
+                id = "ingles",
+                title = "Inglés",
+                type = CircleShelfType.TAG,
+                coverUrl = englishBooks.firstOrNull { !it.coverUrl.isNullOrBlank() }?.coverUrl,
+                bookCount = englishBooks.size
+            )
+        )
+
         list
     }
 
@@ -473,6 +485,7 @@ fun LibraryGridScreen(
                                 authHeader = authHeader,
                                 isInteractive = !showDetailsModal && !isDrawerOpen,
                                 isLeftEdge = isLeftEdge,
+                                modifier = Modifier.focusRequester(bookFocusRequesters.getOrPut(book.id) { FocusRequester() }),
                                 onLeftAtBoundary = { isDrawerOpen = true },
                                 onSelected = {
                                     detailsBook = book
@@ -494,6 +507,7 @@ fun LibraryGridScreen(
                 when (item) {
                     DrawerItem.HOME -> onNavigateToHome()
                     DrawerItem.BIBLIOTECA -> { /* Already here */ }
+                    DrawerItem.IMPORTAR_WIFI -> onNavigateToWifiImport()
                     DrawerItem.USUARIOS -> showUserProfilesModal = true
                     DrawerItem.LECTOR_3D -> onNavigateToReader()
                     DrawerItem.AJUSTES -> onNavigateToSettings()
@@ -720,6 +734,7 @@ private fun GridCoverCard(
     authHeader: String?,
     isInteractive: Boolean = true,
     isLeftEdge: Boolean = false,
+    modifier: Modifier = Modifier,
     onLeftAtBoundary: () -> Unit,
     onSelected: () -> Unit
 ) {
@@ -727,7 +742,7 @@ private fun GridCoverCard(
     val coverBmp = rememberCoverImage(book.coverUrl, authHeader)
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .scale(if (isFocused && isInteractive) 1.08f else 1.0f)
             .shadow(if (isFocused && isInteractive) 14.dp else 2.dp, RoundedCornerShape(8.dp), spotColor = CyanElectric)

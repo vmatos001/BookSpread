@@ -25,6 +25,9 @@ data class LibraryNavKey(
 data object SettingsNavKey : NavKey
 
 @Serializable
+data object WifiImportNavKey : NavKey
+
+@Serializable
 data class ReaderNavKey(
     val bookId: String,
     val bookTitle: String,

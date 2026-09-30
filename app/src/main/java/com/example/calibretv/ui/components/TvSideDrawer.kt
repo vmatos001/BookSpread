@@ -63,9 +63,12 @@ import com.example.calibretv.theme.SurfaceContainerHigh
 import com.example.calibretv.theme.TextMuted
 import com.example.calibretv.theme.TextPrimary
 
+import androidx.compose.material.icons.filled.QrCodeScanner
+
 enum class DrawerItem(val title: String, val icon: ImageVector) {
     HOME("Home", Icons.Default.Home),
     BIBLIOTECA("Biblioteca", Icons.Default.AutoStories),
+    IMPORTAR_WIFI("Importar por WiFi", Icons.Default.QrCodeScanner),
     USUARIOS("Usuarios", Icons.Default.Person),
     LECTOR_3D("Lector 3D", Icons.Default.MenuBook),
     AJUSTES("Ajustes", Icons.Default.Settings),

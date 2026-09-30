@@ -122,7 +122,12 @@ fun MainNavigation() {
                             backStack.add(ServerNavKey)
                         }
                     },
-                    onNavigateToReader = ::navigateToReaderForLastBook
+                    onNavigateToReader = ::navigateToReaderForLastBook,
+                    onNavigateToWifiImport = {
+                        if (backStack.lastOrNull() !is WifiImportNavKey) {
+                            backStack.add(WifiImportNavKey)
+                        }
+                    }
                 )
             }
             entry<LibraryNavKey> {
@@ -145,6 +150,11 @@ fun MainNavigation() {
                         }
                     },
                     onNavigateToReader = ::navigateToReaderForLastBook,
+                    onNavigateToWifiImport = {
+                        if (backStack.lastOrNull() !is WifiImportNavKey) {
+                            backStack.add(WifiImportNavKey)
+                        }
+                    },
                     onBack = { backStack.removeLastOrNull() }
                 )
             }
@@ -168,6 +178,14 @@ fun MainNavigation() {
                         backStack.add(ServerNavKey)
                     },
                     onSaved = {
+                        backStack.removeLastOrNull()
+                    }
+                )
+            }
+            entry<WifiImportNavKey> {
+                com.example.calibretv.ui.screens.WifiImportScreen(
+                    repository = repository,
+                    onBack = {
                         backStack.removeLastOrNull()
                     }
                 )

@@ -432,4 +432,31 @@ object OpdsClient {
             Result.failure(e)
         }
     }
+
+    suspend fun fetchBookDetailSynopsis(
+        serverUrl: String,
+        bookId: String,
+        username: String = "",
+        password: String = ""
+    ): String? = withContext(Dispatchers.IO) {
+        if (serverUrl.isBlank() || bookId.isBlank()) return@withContext null
+        try {
+            val cleanUrl = serverUrl.trim()
+            val baseServer = if (cleanUrl.endsWith("/opds")) cleanUrl.dropLast(5)
+                else if (cleanUrl.endsWith("/opds/")) cleanUrl.dropLast(6)
+                else if (cleanUrl.endsWith("/")) cleanUrl.dropLast(1)
+                else cleanUrl
+
+            val detailUrl = "$baseServer/opds/book/$bookId"
+            val result = fetchFeed(detailUrl, username, password)
+            if (result.isSuccess) {
+                val feed = result.getOrNull()
+                val book = feed?.books?.firstOrNull()
+                if (book != null && book.summary.isNotBlank() && !book.summary.startsWith("Obra de", ignoreCase = true)) {
+                    return@withContext book.summary
+                }
+            }
+        } catch (_: Exception) {}
+        null
+    }
 }

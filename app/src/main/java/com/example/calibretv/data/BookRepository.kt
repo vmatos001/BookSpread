@@ -191,22 +191,37 @@ class BookRepository(private val context: Context) {
     }
 
     suspend fun getOrFetchBookDescription(book: Book): String = withContext(Dispatchers.IO) {
-        // 1. Descripción tomada de Calibre-Web (siempre que no esté vacía ni sea el texto genérico generado)
+        // 1. Si la descripción ya es texto real de Calibre-Web, la retornamos inmediatamente
         if (book.summary.isNotBlank() && book.summary.length > 25 &&
             !book.summary.startsWith("Obra de", ignoreCase = true) &&
             !book.summary.contains("Sin descripción", ignoreCase = true)
         ) {
             return@withContext book.summary
         }
-        // 2. Extraer descripción dentro del archivo EPUB si está disponible
+
+        // 2. Consulta al endpoint individual de detalles de Calibre-Web (/opds/book/{id})
+        val config = getServerConfig()
+        if (config.serverUrl.isNotBlank()) {
+            val fetchedSynopsis = OpdsClient.fetchBookDetailSynopsis(config.serverUrl, book.id, config.username, config.password)
+            if (!fetchedSynopsis.isNullOrBlank() && fetchedSynopsis.length > 15 && !fetchedSynopsis.startsWith("Obra de", ignoreCase = true)) {
+                val updatedBook = book.copy(summary = fetchedSynopsis)
+                saveCachedBooks(listOf(updatedBook))
+                return@withContext fetchedSynopsis
+            }
+        }
+
+        // 3. Extraer descripción del archivo EPUB si ya se encuentra descargado
         val cacheFile = File(context.cacheDir, "book_${book.id.hashCode()}.epub")
         if (cacheFile.exists() && cacheFile.length() > 0L) {
             val internalDesc = EpubParser.extractDescription(cacheFile)
             if (!internalDesc.isNullOrBlank() && internalDesc.length > 15) {
+                val updatedBook = book.copy(summary = internalDesc)
+                saveCachedBooks(listOf(updatedBook))
                 return@withContext internalDesc
             }
         }
-        // 3. Fallback inteligente generado con los datos disponibles (priorizando shelves si existen)
+
+        // 4. Fallback generado si no hay sinopsis disponible en el servidor
         val tagsToUse = book.shelves.ifEmpty { book.tags }
         OpdsClient.buildSmartDescription(book.title, book.author, book.category, tagsToUse)
     }

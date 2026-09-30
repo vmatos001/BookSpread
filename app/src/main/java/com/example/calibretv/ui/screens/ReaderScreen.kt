@@ -900,12 +900,15 @@ fun ReaderScreen(
                             )
                         }
                         item {
+                            val isTtsEngineAvailable by ttsController.isEngineAvailable.collectAsState()
                             StitchHudButton(
                                 title = if (isTtsPlaying) "⏸ Pausa" else "▶ Leer",
                                 icon = Icons.Filled.RecordVoiceOver,
                                 isPrimary = isTtsPlaying,
                                 onClick = {
-                                    if (isTtsPlaying) {
+                                    if (!isTtsEngineAvailable) {
+                                        android.widget.Toast.makeText(context, "Tu TV no tiene motor de voz TTS instalado. Instala 'Google Speech Services' o 'eSpeak'.", android.widget.Toast.LENGTH_LONG).show()
+                                    } else if (isTtsPlaying) {
                                         ttsController.stop()
                                     } else {
                                         val leftText = currentSpread?.leftPage?.paragraphs?.joinToString(" ") ?: ""

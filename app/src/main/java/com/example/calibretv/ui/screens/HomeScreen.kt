@@ -97,7 +97,8 @@ fun HomeScreen(
     onNavigateToLibrary: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToOpds: () -> Unit,
-    onNavigateToReader: () -> Unit
+    onNavigateToReader: () -> Unit,
+    onNavigateToWifiImport: () -> Unit = {}
 ) {
     var feedContent by remember { mutableStateOf<OpdsFeedContent?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -512,6 +513,7 @@ fun HomeScreen(
                 when (item) {
                     DrawerItem.HOME -> { /* Already here */ }
                     DrawerItem.BIBLIOTECA -> onNavigateToLibrary()
+                    DrawerItem.IMPORTAR_WIFI -> onNavigateToWifiImport()
                     DrawerItem.USUARIOS -> showUserProfilesModal = true
                     DrawerItem.LECTOR_3D -> onNavigateToReader()
                     DrawerItem.AJUSTES -> onNavigateToSettings()

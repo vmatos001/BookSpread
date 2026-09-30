@@ -195,7 +195,7 @@ fun LibraryGridScreen(
     // Circular Shelf Filters (Section A: Netflix Kids style)
     val circleFilters = remember(allBooks) {
         val list = mutableListOf<CircleShelfFilter>()
-        // 1. Todos
+        // 1. Todos los libros
         list.add(
             CircleShelfFilter(
                 id = "all",
@@ -204,7 +204,7 @@ fun LibraryGridScreen(
                 bookCount = allBooks.size
             )
         )
-        // 2. Levels 1 al 5
+        // 2. Niveles del 1 al 5
         for (lvl in 1..5) {
             val count = allBooks.count { getBookDifficultyLevel(it) == lvl }
             list.add(
@@ -217,27 +217,30 @@ fun LibraryGridScreen(
                 )
             )
         }
-        // 3. Calibre-Web Shelves (Characters first, then other shelves)
+        // 3. Estantería Inglés
+        val englishBooks = allBooks.filter { b ->
+            b.shelves.any { it.contains("ingl", ignoreCase = true) || it.contains("english", ignoreCase = true) } ||
+            b.tags.any { it.contains("ingl", ignoreCase = true) || it.contains("english", ignoreCase = true) } ||
+            b.category.contains("ingl", ignoreCase = true) || b.category.contains("english", ignoreCase = true)
+        }
+        list.add(
+            CircleShelfFilter(
+                id = "ingles",
+                title = "Inglés",
+                type = CircleShelfType.TAG,
+                coverUrl = englishBooks.firstOrNull { !it.coverUrl.isNullOrBlank() }?.coverUrl,
+                bookCount = englishBooks.size
+            )
+        )
+        // 4. Shelves de Personajes de TV (desde Calibre-Web)
         val shelvesFromBooks = allBooks.flatMap { it.shelves }.distinct()
-            .filter { it.isNotBlank() && !it.matches(Regex("""^\d+\s*nivel.*""", RegexOption.IGNORE_CASE)) }
+            .filter { it.isNotBlank() && !it.matches(Regex("""^\d+\s*nivel.*""", RegexOption.IGNORE_CASE)) && !it.contains("ingl", ignoreCase = true) }
 
         val charShelves = shelvesFromBooks.filter { OpdsClient.isCharacterShelfName(it) }.sorted()
-        val otherShelves = shelvesFromBooks.filter { !OpdsClient.isCharacterShelfName(it) }.sorted()
 
-        val allShelfNames = if (charShelves.isNotEmpty() || otherShelves.isNotEmpty()) {
-            charShelves + otherShelves
-        } else {
-            allBooks.flatMap { it.tags }
-                .distinct()
-                .filter { it.isNotBlank() && !it.equals("General", ignoreCase = true) && !it.matches(Regex("""^\d+\s*nivel.*""", RegexOption.IGNORE_CASE)) }
-                .sorted()
-        }
-
-        allShelfNames.forEach { shelfName ->
+        charShelves.forEach { shelfName ->
             val matchingBooks = allBooks.filter { b ->
-                b.shelves.any { it.equals(shelfName, ignoreCase = true) } ||
-                b.tags.any { it.equals(shelfName, ignoreCase = true) } ||
-                b.category.equals(shelfName, ignoreCase = true)
+                b.shelves.any { it.equals(shelfName, ignoreCase = true) }
             }
             val coverUrl = matchingBooks.firstOrNull { !it.coverUrl.isNullOrBlank() }?.coverUrl
             list.add(
@@ -585,11 +588,14 @@ fun LibraryGridScreen(
                                 .fillMaxHeight(),
                             verticalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
                                 Text(
                                     text = book.title,
                                     color = TextPrimary,
-                                    fontSize = 24.sp,
+                                    fontSize = 22.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
@@ -598,22 +604,21 @@ fun LibraryGridScreen(
                                 Text(
                                     text = "${book.author} • ${book.category}",
                                     color = AmberWarm,
-                                    fontSize = 15.sp,
+                                    fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
 
                                 val modalLevel = remember(book) { getBookDifficultyLevel(book) }
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(vertical = 2.dp)
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     if (modalLevel in 1..5) {
                                         Box(
                                             modifier = Modifier
                                                 .background(CyanElectric.copy(alpha = 0.20f), RoundedCornerShape(6.dp))
                                                 .border(1.dp, CyanElectric, RoundedCornerShape(6.dp))
-                                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                                                .padding(horizontal = 8.dp, vertical = 2.dp)
                                         ) {
                                             Text(
                                                 text = "⭐ Dificultad: Nivel $modalLevel",
@@ -623,12 +628,12 @@ fun LibraryGridScreen(
                                             )
                                         }
                                     }
-                                    book.shelves.forEach { shelf ->
+                                    book.shelves.take(3).forEach { shelf ->
                                         Box(
                                             modifier = Modifier
                                                 .background(AmberWarm.copy(alpha = 0.20f), RoundedCornerShape(6.dp))
                                                 .border(1.dp, AmberWarm, RoundedCornerShape(6.dp))
-                                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                                                .padding(horizontal = 8.dp, vertical = 2.dp)
                                         ) {
                                             Text(
                                                 text = "🏷 $shelf",
@@ -640,22 +645,7 @@ fun LibraryGridScreen(
                                     }
                                 }
 
-                                if (book.tags.isNotEmpty()) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        modifier = Modifier.padding(vertical = 2.dp)
-                                    ) {
-                                        book.tags.take(4).forEach { tag ->
-                                            Box(
-                                                modifier = Modifier
-                                                    .background(SurfaceContainerHigh, RoundedCornerShape(6.dp))
-                                                    .padding(horizontal = 8.dp, vertical = 3.dp)
-                                            ) {
-                                                Text(text = "#$tag", color = CyanElectric.copy(alpha = 0.8f), fontSize = 11.sp)
-                                            }
-                                        }
-                                    }
-                                }
+                                Spacer(modifier = Modifier.height(4.dp))
 
                                 Text(
                                     text = "Sinopsis:",
@@ -664,20 +654,28 @@ fun LibraryGridScreen(
                                     fontWeight = FontWeight.Bold
                                 )
 
-                                Text(
-                                    text = if (modalDescription.isNotBlank()) modalDescription else book.summary.ifBlank { "Sin descripción disponible." },
-                                    color = TextPrimary.copy(alpha = 0.88f),
-                                    fontSize = 13.sp,
-                                    lineHeight = 19.sp,
+                                Box(
                                     modifier = Modifier
-                                        .weight(1f, fill = false)
+                                        .fillMaxWidth()
+                                        .weight(1f)
+                                        .background(SurfaceContainerHigh.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                        .padding(10.dp)
                                         .verticalScroll(rememberScrollState())
-                                )
+                                ) {
+                                    Text(
+                                        text = if (modalDescription.isNotBlank()) modalDescription else book.summary.ifBlank { "Sin descripción disponible." },
+                                        color = TextPrimary.copy(alpha = 0.9f),
+                                        fontSize = 13.sp,
+                                        lineHeight = 18.sp
+                                    )
+                                }
                             }
+
+                            Spacer(modifier = Modifier.height(12.dp))
 
                             var isFav by remember(book.id) { mutableStateOf(repository.isFavorite(book.id)) }
 
-                            // Modal Buttons with trapped remote focus
+                            // Modal Buttons strictly FIXED at the bottom
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(14.dp)

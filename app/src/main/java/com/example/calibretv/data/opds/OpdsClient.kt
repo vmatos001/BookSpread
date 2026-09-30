@@ -214,7 +214,23 @@ object OpdsClient {
                         when (name.lowercase()) {
                             "id" -> currentId = try { parser.nextText().trim() } catch (_: Exception) { "" }
                             "title" -> currentTitle = try { parser.nextText().trim() } catch (_: Exception) { "" }
-                            "summary", "content" -> currentSummary = try { parser.nextText().trim() } catch (_: Exception) { "" }
+                            "summary", "content", "description" -> {
+                                try {
+                                    val depth = parser.depth
+                                    val sb = StringBuilder()
+                                    var evt = parser.next()
+                                    while (!(evt == XmlPullParser.END_TAG && parser.depth == depth) && evt != XmlPullParser.END_DOCUMENT) {
+                                        if (evt == XmlPullParser.TEXT || evt == XmlPullParser.CDSECT) {
+                                            sb.append(parser.text)
+                                        }
+                                        evt = parser.next()
+                                    }
+                                    val cleaned = cleanHtmlText(sb.toString())
+                                    if (cleaned.isNotBlank() && (currentSummary.isBlank() || cleaned.length > currentSummary.length)) {
+                                        currentSummary = cleaned
+                                    }
+                                } catch (_: Exception) {}
+                            }
                             "name", "author" -> {
                                 val a = try { parser.nextText().trim() } catch (_: Exception) { "" }
                                 if (a.isNotBlank() && currentAuthor.isBlank()) currentAuthor = a
@@ -311,6 +327,22 @@ object OpdsClient {
         } catch (_: Exception) {
             path
         }
+    }
+
+    fun cleanHtmlText(rawHtml: String): String {
+        if (rawHtml.isBlank()) return ""
+        var text = rawHtml
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&amp;", "&")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .replace("&nbsp;", " ")
+        text = text.replace(Regex("""(?i)<br\s*/?>"""), "\n")
+            .replace(Regex("""(?i)</p>"""), "\n\n")
+            .replace(Regex("""(?i)</div>"""), "\n")
+        text = text.replace(Regex("""<[^>]*>"""), "")
+        return text.replace(Regex("""\n{3,}"""), "\n\n").trim()
     }
 
     fun buildSmartDescription(title: String, author: String, category: String, tags: List<String>): String {

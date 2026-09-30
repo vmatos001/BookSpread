@@ -147,8 +147,21 @@ fun ReaderScreen(
     val soundManager = remember { SoundManager(context) }
     val ambientManager = remember { AmbientSoundManager(context) }
 
-    DisposableEffect(Unit) {
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE || event == androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+                ambientManager.stop()
+                ttsController.stop()
+            } else if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                if (settings.ambientSound != AmbientSound.NONE) {
+                    ambientManager.play(settings.ambientSound, settings.ambientVolume)
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
             ttsController.destroy()
             soundManager.release()
             ambientManager.release()
@@ -156,7 +169,11 @@ fun ReaderScreen(
     }
 
     LaunchedEffect(settings.ambientSound, settings.ambientVolume) {
-        ambientManager.play(settings.ambientSound, settings.ambientVolume)
+        if (settings.ambientSound == AmbientSound.NONE) {
+            ambientManager.stop()
+        } else {
+            ambientManager.play(settings.ambientSound, settings.ambientVolume)
+        }
     }
 
     // Load parsed book once

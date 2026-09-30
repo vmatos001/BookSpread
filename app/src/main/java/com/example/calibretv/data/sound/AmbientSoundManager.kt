@@ -2,11 +2,13 @@ package com.example.calibretv.data.sound
 
 import android.content.Context
 import android.media.MediaPlayer
+import android.util.Log
 import com.example.calibretv.R
 import com.example.calibretv.data.model.AmbientSound
 
 class AmbientSoundManager(private val context: Context) {
 
+    private val TAG = "AmbientSoundManager"
     private var mediaPlayer: MediaPlayer? = null
     private var currentSound: AmbientSound = AmbientSound.NONE
 
@@ -20,32 +22,55 @@ class AmbientSoundManager(private val context: Context) {
     }
 
     fun play(sound: AmbientSound, volume: Float = 0.4f) {
-        if (sound == currentSound && mediaPlayer?.isPlaying == true) {
-            mediaPlayer?.setVolume(volume, volume)
-            return
-        }
-        stop()
-        if (sound == AmbientSound.NONE) return
-        val resId = getResId(sound) ?: return
         try {
+            if (sound == currentSound && isPlayerActive()) {
+                setVolume(volume)
+                return
+            }
+            stop()
+            if (sound == AmbientSound.NONE) return
+            val resId = getResId(sound) ?: return
+
             mediaPlayer = MediaPlayer.create(context, resId)?.apply {
                 isLooping = true
                 setVolume(volume, volume)
                 start()
             }
             currentSound = sound
-        } catch (_: Exception) {}
+        } catch (e: Throwable) {
+            Log.e(TAG, "Error playing ambient sound $sound", e)
+            mediaPlayer = null
+            currentSound = AmbientSound.NONE
+        }
+    }
+
+    private fun isPlayerActive(): Boolean {
+        return try {
+            mediaPlayer?.isPlaying == true
+        } catch (_: Throwable) {
+            false
+        }
     }
 
     fun setVolume(volume: Float) {
-        mediaPlayer?.setVolume(volume, volume)
+        try {
+            mediaPlayer?.setVolume(volume, volume)
+        } catch (_: Throwable) {}
     }
 
     fun stop() {
-        mediaPlayer?.apply {
-            if (isPlaying) stop()
-            release()
-        }
+        try {
+            mediaPlayer?.let { player ->
+                try {
+                    if (player.isPlaying) {
+                        player.stop()
+                    }
+                } catch (_: Throwable) {}
+                try {
+                    player.release()
+                } catch (_: Throwable) {}
+            }
+        } catch (_: Throwable) {}
         mediaPlayer = null
         currentSound = AmbientSound.NONE
     }

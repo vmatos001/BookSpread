@@ -6,7 +6,7 @@
 
 ## 📅 Estado Actual del Proyecto (Actualizado: 28/09/2026)
 
-- **Versión Activa:** `v2.4` (Build `versionCode = 8`, `versionName = "2.4"`)
+- **Versión Activa:** `v2.5` (Build `versionCode = 9`, `versionName = "2.5"`)
 - **Repositorio:** `https://github.com/vmatos001/calibrotv`
 - **Descarga Directa Downloader / TinyURL:** `https://tinyurl.com/29t27s6q`
 - **Keystore de Firma:** `app/keystore/calibrotv.keystore` (Firma unificada permanente para Debug y Release con Huella SHA256: `52:E8:ED:A7:6F:9C:CA:51:F5:55:6E:48:47:7C:20:C3:8F:AE:6B:4F:6C:AE:C3:D4:84:FB:98:17:7F:7E:F8:0C`).
@@ -23,7 +23,7 @@ Si en la TV aparece el mensaje:
 **Solución por única vez:**
 1. Desinstalar la versión antigua de CalibroTV en la TV.
 2. Instalar **v2.2** utilizando el código de Downloader `https://tinyurl.com/29t27s6q`.
-3. A partir de **v2.2 en adelante** (v2.3, v2.4, etc.), todas las actualizaciones automáticas OTA o vía Downloader se instalarán **sin desinstalar nada**, ya que mantendrán la misma firma oficial.
+3. A partir de **v2.2 en adelante** (v2.3, v2.4, v2.5, etc.), todas las actualizaciones automáticas OTA o vía Downloader se instalarán **sin desinstalar nada**, ya que mantendrán la misma firma oficial.
 
 ---
 
@@ -57,12 +57,20 @@ Si en la TV aparece el mensaje:
 
 ## 📋 Historial de Versiones
 
-### v2.2 (Última versión)
+### v2.5 (Versión Actual)
+- **Foco de Navegación D-Pad:** Restauración precisa de foco al cerrar la ficha técnica de un libro; el cursor vuelve exactamente al libro seleccionado en lugar de saltar al título superior.
+- **Sinopsis Real OPDS:** Carga directa de descripciones de libros desde el feed individual del servidor Calibre-Web y almacenamiento persistente en Room.
+- **Diseño Modal Resiliente:** Contenedor de sinopsis con desplazamiento vertical (scroll D-Pad) con límite de altura para evitar que la sinopsis oculte los botones de lectura 3D, favoritos y cerrar.
+- **Filtros e Iconografía de Estanterías:** Ubicación de las estanterías de personajes entre `[TODOS]` y `[NIVEL 1]` y parser de niveles flexible para etiquetas numéricas o mixtas.
+- **Audio Ambiental Blindado:** Captura preventiva de errores en `MediaPlayer` para garantizar que la reproducción de sonidos ambientales (lluvia, mar, café) no interrumpa ni cierre la aplicación.
+- **Importador WiFi Sideload (Java Socket HTTP):** Reemplazo del módulo `HttpServer` por un servidor HTTP ligero embebido con `ServerSocket` compatible con el runtime ART de Android TV.
+- **Diagnóstico y Soporte TTS:** Notificaciones claras al usuario cuando la TV carece de motor TTS o idioma instalado.
+
+### v2.4 y v2.3
 - **Biblioteca estilo Netflix Kids:** Estanterías circulares de personajes y números 1-5.
 - **Lectura TTS:** Corrección de compatibilidad en Android TV para lectura continua en voz alta.
-- **Sonidos Ambientales OGG:** Sustitución de audio sintético por sonidos profesionales en bucle continuo y ligero.
+- **Sonidos Ambientales OGG:** Sustitución de audio sintético por sonidos profesionales en bucle continuo.
 - **Firma Única Keystore:** Configuración de `calibrotv.keystore` tanto en debug como release.
-- **Sinopsis Enriquecida:** Integración de metadatos de Calibre-Web y etiquetas de nivel/shelves en el modal de detalles del libro.
 
 ---
 

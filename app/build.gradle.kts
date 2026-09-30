@@ -9,7 +9,7 @@ android {
     namespace = "com.example.calibretv"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.calibrotv.app"
+        applicationId = "com.bookspread.app"
         minSdk = 23
         targetSdk = 34
         versionCode = 9

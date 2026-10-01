@@ -43,11 +43,14 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import com.example.calibretv.ui.components.QuizDialog
+import com.example.calibretv.ui.components.UserProfilesDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -118,8 +121,8 @@ fun ReaderScreen(
     onTabSelected: (TvNavTab) -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
-    var settings by remember { mutableStateOf(repository.getReadingSettings()) }
     var activeProfile by remember { mutableStateOf(repository.getActiveProfile()) }
+    var settings by remember(activeProfile) { mutableStateOf(repository.getReadingSettings(activeProfile.id)) }
     var parsedBook by remember { mutableStateOf<ParsedBook?>(null) }
     var spreads by remember { mutableStateOf<List<PageSpread>>(emptyList()) }
     var currentSpreadIndex by remember { mutableIntStateOf(0) }
@@ -136,6 +139,8 @@ fun ReaderScreen(
     // Navigation and HUD visibility
     var showBottomHud by remember { mutableStateOf(false) } // Triggered by DPAD_DOWN
     var showTopBar by remember { mutableStateOf(false) }    // Triggered by DPAD_UP
+    var showQuizModal by remember { mutableStateOf(false) }
+    var showProfilesModal by remember { mutableStateOf(false) }
 
     val curlAnim = remember { Animatable(0f) }
     val readerFocusRequester = remember { FocusRequester() }
@@ -298,7 +303,14 @@ fun ReaderScreen(
             .focusable()
             .onKeyEvent { keyEvent ->
                 if (keyEvent.type == KeyEventType.KeyDown) {
-                    if (showBottomHud) {
+                    if (showQuizModal || showProfilesModal) {
+                        if (keyEvent.key == Key.Back || keyEvent.key == Key.Escape) {
+                            showQuizModal = false
+                            showProfilesModal = false
+                            readerFocusRequester.requestFocus()
+                            true
+                        } else false
+                    } else if (showBottomHud) {
                         when (keyEvent.key) {
                             Key.DirectionUp, Key.Back, Key.Escape -> {
                                 showBottomHud = false
@@ -677,10 +689,8 @@ fun ReaderScreen(
                 },
                 activeProfile = activeProfile,
                 onProfileClick = {
-                    val profiles = repository.getProfiles()
-                    val curIdx = profiles.indexOfFirst { it.id == activeProfile.id }
-                    activeProfile = profiles[(curIdx + 1) % profiles.size]
-                    repository.saveActiveProfile(activeProfile)
+                    showTopBar = false
+                    showProfilesModal = true
                 }
             )
         }
@@ -993,9 +1003,56 @@ fun ReaderScreen(
                                 }
                             )
                         }
+                        item {
+                            StitchHudButton(
+                                title = "⭐ Mini-Quiz",
+                                icon = Icons.Filled.Star,
+                                isPrimary = true,
+                                onClick = {
+                                    showBottomHud = false
+                                    showQuizModal = true
+                                }
+                            )
+                        }
                     }
                 }
             }
+        }
+
+        // ==========================================
+        // MINI-QUIZ DE COMPRENSIÓN LECTORA
+        // ==========================================
+        if (showQuizModal) {
+            QuizDialog(
+                bookTitle = book.title,
+                repository = repository,
+                onDismiss = {
+                    showQuizModal = false
+                    readerFocusRequester.requestFocus()
+                }
+            )
+        }
+
+        // ==========================================
+        // SELECTOR DE PERFIL FAMILIAR
+        // ==========================================
+        if (showProfilesModal) {
+            UserProfilesDialog(
+                repository = repository,
+                activeProfile = activeProfile,
+                onProfileChanged = { newProf ->
+                    activeProfile = newProf
+                    settings = repository.getReadingSettings(newProf.id)
+                    showProfilesModal = false
+                    readerFocusRequester.requestFocus()
+                },
+                onDismiss = {
+                    showProfilesModal = false
+                    activeProfile = repository.getActiveProfile()
+                    settings = repository.getReadingSettings(activeProfile.id)
+                    readerFocusRequester.requestFocus()
+                }
+            )
         }
     }
 }

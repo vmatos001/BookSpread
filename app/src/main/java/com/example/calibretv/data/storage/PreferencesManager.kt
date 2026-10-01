@@ -52,29 +52,35 @@ class PreferencesManager(context: Context) {
             .apply()
     }
 
-    fun getReadingSettings(): ReadingSettings {
-        val themeName = prefs.getString("read_theme", ReadingTheme.PERGAMINO.name) ?: ReadingTheme.PERGAMINO.name
+    fun getReadingSettings(profileId: String? = null): ReadingSettings {
+        val pid = profileId ?: prefs.getString("active_profile_id", null)
+        val pfx = if (pid != null) "_$pid" else ""
+
+        val defaultTheme = ReadingTheme.PERGAMINO.name
+        val themeName = prefs.getString("read_theme$pfx", prefs.getString("read_theme", defaultTheme)) ?: defaultTheme
         val theme = try {
             ReadingTheme.valueOf(themeName)
         } catch (_: Exception) {
             ReadingTheme.PERGAMINO
         }
 
-        val speedName = prefs.getString("curl_speed", CurlSpeed.APPLE_BOOKS_SMOOTH.name) ?: CurlSpeed.APPLE_BOOKS_SMOOTH.name
+        val defaultSpeed = CurlSpeed.APPLE_BOOKS_SMOOTH.name
+        val speedName = prefs.getString("curl_speed$pfx", prefs.getString("curl_speed", defaultSpeed)) ?: defaultSpeed
         val speed = try {
             CurlSpeed.valueOf(speedName)
         } catch (_: Exception) {
             CurlSpeed.APPLE_BOOKS_SMOOTH
         }
 
-        val fontName = prefs.getString("reading_font", com.example.calibretv.data.model.ReadingFont.SERIF_SYSTEM.name) ?: com.example.calibretv.data.model.ReadingFont.SERIF_SYSTEM.name
+        val defaultFont = com.example.calibretv.data.model.ReadingFont.SERIF_SYSTEM.name
+        val fontName = prefs.getString("reading_font$pfx", prefs.getString("reading_font", defaultFont)) ?: defaultFont
         val font = try {
             com.example.calibretv.data.model.ReadingFont.valueOf(fontName)
         } catch (_: Exception) {
             com.example.calibretv.data.model.ReadingFont.SERIF_SYSTEM
         }
-        val mirror = prefs.getBoolean("vertical_mirror", false)
-        val rot = prefs.getBoolean("rotation_180", false)
+        val mirror = prefs.getBoolean("vertical_mirror$pfx", prefs.getBoolean("vertical_mirror", false))
+        val rot = prefs.getBoolean("rotation_180$pfx", prefs.getBoolean("rotation_180", false))
 
         return ReadingSettings(
             verticalMirror = mirror,
@@ -82,28 +88,32 @@ class PreferencesManager(context: Context) {
             ceilingMode = mirror || rot,
             curlSpeed = speed,
             theme = theme,
-            fontSizeSp = prefs.getInt("font_size", 20),
-            overscanPercent = prefs.getInt("overscan", 0),
-            sleepTimerMinutes = prefs.getInt("sleep_timer", 0),
-            readerBrightness = prefs.getFloat("reader_brightness", 1.0f),
+            fontSizeSp = prefs.getInt("font_size$pfx", prefs.getInt("font_size", 20)),
+            overscanPercent = prefs.getInt("overscan$pfx", prefs.getInt("overscan", 0)),
+            sleepTimerMinutes = prefs.getInt("sleep_timer$pfx", prefs.getInt("sleep_timer", 0)),
+            readerBrightness = prefs.getFloat("reader_brightness$pfx", prefs.getFloat("reader_brightness", 1.0f)),
             readingFont = font,
-            spineDepth3D = prefs.getFloat("spine_depth_3d", 0.5f),
-            ttsEnabled = prefs.getBoolean("tts_enabled", false),
-            ttsSpeedRate = prefs.getFloat("tts_speed_rate", 1.0f),
-            pageSoundEnabled = prefs.getBoolean("page_sound_enabled", true),
+            spineDepth3D = prefs.getFloat("spine_depth_3d$pfx", prefs.getFloat("spine_depth_3d", 0.5f)),
+            ttsEnabled = prefs.getBoolean("tts_enabled$pfx", prefs.getBoolean("tts_enabled", false)),
+            ttsSpeedRate = prefs.getFloat("tts_speed_rate$pfx", prefs.getFloat("tts_speed_rate", 1.0f)),
+            pageSoundEnabled = prefs.getBoolean("page_sound_enabled$pfx", prefs.getBoolean("page_sound_enabled", true)),
             ambientSound = try {
                 com.example.calibretv.data.model.AmbientSound.valueOf(
-                    prefs.getString("ambient_sound", com.example.calibretv.data.model.AmbientSound.NONE.name) ?: com.example.calibretv.data.model.AmbientSound.NONE.name
+                    prefs.getString("ambient_sound$pfx", prefs.getString("ambient_sound", com.example.calibretv.data.model.AmbientSound.NONE.name))
+                        ?: com.example.calibretv.data.model.AmbientSound.NONE.name
                 )
             } catch (_: Exception) {
                 com.example.calibretv.data.model.AmbientSound.NONE
             },
-            ambientVolume = prefs.getFloat("ambient_volume", 0.4f)
+            ambientVolume = prefs.getFloat("ambient_volume$pfx", prefs.getFloat("ambient_volume", 0.4f))
         )
     }
 
-    fun saveReadingSettings(settings: ReadingSettings) {
-        prefs.edit()
+    fun saveReadingSettings(settings: ReadingSettings, profileId: String? = null) {
+        val pid = profileId ?: prefs.getString("active_profile_id", null)
+        val pfx = if (pid != null) "_$pid" else ""
+
+        val editor = prefs.edit()
             .putBoolean("vertical_mirror", settings.verticalMirror)
             .putBoolean("rotation_180", settings.rotation180)
             .putBoolean("ceiling_mode", settings.verticalMirror || settings.rotation180)
@@ -120,7 +130,27 @@ class PreferencesManager(context: Context) {
             .putBoolean("page_sound_enabled", settings.pageSoundEnabled)
             .putString("ambient_sound", settings.ambientSound.name)
             .putFloat("ambient_volume", settings.ambientVolume)
-            .apply()
+
+        if (pfx.isNotEmpty()) {
+            editor
+                .putBoolean("vertical_mirror$pfx", settings.verticalMirror)
+                .putBoolean("rotation_180$pfx", settings.rotation180)
+                .putBoolean("ceiling_mode$pfx", settings.verticalMirror || settings.rotation180)
+                .putString("curl_speed$pfx", settings.curlSpeed.name)
+                .putString("read_theme$pfx", settings.theme.name)
+                .putInt("font_size$pfx", settings.fontSizeSp)
+                .putInt("overscan$pfx", settings.overscanPercent)
+                .putInt("sleep_timer$pfx", settings.sleepTimerMinutes)
+                .putFloat("reader_brightness$pfx", settings.readerBrightness)
+                .putString("reading_font$pfx", settings.readingFont.name)
+                .putFloat("spine_depth_3d$pfx", settings.spineDepth3D)
+                .putBoolean("tts_enabled$pfx", settings.ttsEnabled)
+                .putFloat("tts_speed_rate$pfx", settings.ttsSpeedRate)
+                .putBoolean("page_sound_enabled$pfx", settings.pageSoundEnabled)
+                .putString("ambient_sound$pfx", settings.ambientSound.name)
+                .putFloat("ambient_volume$pfx", settings.ambientVolume)
+        }
+        editor.apply()
     }
 
     fun getProfiles(): List<UserProfile> {
@@ -133,11 +163,22 @@ class PreferencesManager(context: Context) {
             val list = mutableListOf<UserProfile>()
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
+                val whiteArr = o.optJSONArray("whitelistBookIds")
+                val whiteList = mutableListOf<String>()
+                if (whiteArr != null) {
+                    for (j in 0 until whiteArr.length()) {
+                        whiteList.add(whiteArr.getString(j))
+                    }
+                }
                 list.add(
                     UserProfile(
                         id = o.optString("id", "user_${i + 1}"),
                         name = o.optString("name", "Usuario"),
-                        avatarColorHex = o.optString("avatarColorHex", "#FFA000")
+                        avatarColorHex = o.optString("avatarColorHex", "#C5A059"),
+                        isKidsMode = o.optBoolean("isKidsMode", false),
+                        parentalPin = if (o.has("parentalPin") && !o.isNull("parentalPin") && o.getString("parentalPin").isNotBlank()) o.getString("parentalPin") else null,
+                        starsCount = o.optInt("starsCount", 0),
+                        whitelistBookIds = whiteList
                     )
                 )
             }
@@ -155,34 +196,108 @@ class PreferencesManager(context: Context) {
                 o.put("id", p.id)
                 o.put("name", p.name)
                 o.put("avatarColorHex", p.avatarColorHex)
+                o.put("isKidsMode", p.isKidsMode)
+                if (p.parentalPin != null) {
+                    o.put("parentalPin", p.parentalPin)
+                }
+                o.put("starsCount", p.starsCount)
+                val whiteArr = org.json.JSONArray()
+                p.whitelistBookIds.forEach { whiteArr.put(it) }
+                o.put("whitelistBookIds", whiteArr)
                 arr.put(o)
             }
             prefs.edit().putString("user_profiles_list", arr.toString()).apply()
         } catch (_: Exception) {}
     }
 
-    fun createProfile(name: String, colorHex: String = "#FFA000"): UserProfile {
+    fun createProfile(
+        name: String,
+        colorHex: String = "#C5A059",
+        isKidsMode: Boolean = false,
+        parentalPin: String? = null
+    ): UserProfile {
         val current = getProfiles().toMutableList()
         val newId = "user_${System.currentTimeMillis()}"
-        val newProfile = UserProfile(newId, name.ifBlank { "Mi Perfil" }, colorHex)
+        val newProfile = UserProfile(
+            id = newId,
+            name = name.ifBlank { if (isKidsMode) "Modo Niños" else "Mi Perfil" },
+            avatarColorHex = colorHex,
+            isKidsMode = isKidsMode,
+            parentalPin = parentalPin
+        )
         current.add(newProfile)
         saveProfiles(current)
         saveActiveProfile(newProfile)
         return newProfile
     }
 
+    fun updateProfile(updated: UserProfile) {
+        val current = getProfiles().toMutableList()
+        val idx = current.indexOfFirst { it.id == updated.id }
+        if (idx != -1) {
+            current[idx] = updated
+            saveProfiles(current)
+            if (getActiveProfile().id == updated.id) {
+                saveActiveProfile(updated)
+            }
+        }
+    }
+
+    fun deleteProfile(profileId: String): Boolean {
+        val current = getProfiles().toMutableList()
+        val remaining = current.filter { it.id != profileId }
+        if (remaining.isEmpty()) return false
+        saveProfiles(remaining)
+        if (getActiveProfile().id == profileId) {
+            saveActiveProfile(remaining.first())
+        }
+        return true
+    }
+
+    fun awardStarToProfile(profileId: String, count: Int = 1): Int {
+        val profiles = getProfiles().toMutableList()
+        var newStars = 0
+        val idx = profiles.indexOfFirst { it.id == profileId }
+        if (idx != -1) {
+            val current = profiles[idx]
+            newStars = current.starsCount + count
+            val updated = current.copy(starsCount = newStars)
+            profiles[idx] = updated
+            saveProfiles(profiles)
+            if (getActiveProfile().id == profileId) {
+                saveActiveProfile(updated)
+            }
+        }
+        return newStars
+    }
+
+    fun updateProfileWhitelist(profileId: String, whitelistBookIds: List<String>) {
+        val profiles = getProfiles().toMutableList()
+        val idx = profiles.indexOfFirst { it.id == profileId }
+        if (idx != -1) {
+            val updated = profiles[idx].copy(whitelistBookIds = whitelistBookIds)
+            profiles[idx] = updated
+            saveProfiles(profiles)
+            if (getActiveProfile().id == profileId) {
+                saveActiveProfile(updated)
+            }
+        }
+    }
+
     fun getActiveProfile(): UserProfile {
         val id = prefs.getString("active_profile_id", null)
-        val name = prefs.getString("active_profile_name", null)
-        val color = prefs.getString("active_profile_color", "#FFA000") ?: "#FFA000"
-        if (id != null && name != null) {
-            return UserProfile(id, name, color)
+        val allProfiles = getProfiles()
+        if (id != null) {
+            val matched = allProfiles.find { it.id == id }
+            if (matched != null) return matched
         }
-        val first = getProfiles().firstOrNull()
+        val first = allProfiles.firstOrNull()
         if (first != null) {
             return first
         }
-        return UserProfile("user_default", "Mi Perfil", "#FFA000")
+        val name = prefs.getString("active_profile_name", "Mi Perfil") ?: "Mi Perfil"
+        val color = prefs.getString("active_profile_color", "#C5A059") ?: "#C5A059"
+        return UserProfile("user_default", name, color)
     }
 
     fun saveActiveProfile(profile: UserProfile) {

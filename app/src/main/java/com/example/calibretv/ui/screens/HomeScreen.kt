@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.CircularProgressIndicator
 import com.example.calibretv.ui.components.UserProfilesDialog
+import com.example.calibretv.ui.components.PinPadDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -117,6 +118,10 @@ fun HomeScreen(
 
     var isDrawerOpen by remember { mutableStateOf(false) }
     var showUserProfilesModal by remember { mutableStateOf(false) }
+    var pendingProtectedAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val householdPin = remember(activeProfile) {
+        repository.getProfiles().firstOrNull { it.parentalPin != null }?.parentalPin
+    }
 
     // Modal state for Book Details
     var showDetailsModal by remember { mutableStateOf(false) }
@@ -124,13 +129,25 @@ fun HomeScreen(
     var modalDescription by remember { mutableStateOf("") }
     val modalReadFocusRequester = remember { FocusRequester() }
 
-    // Cartelera dinámica y Curaduría por Personajes
-    val curatorSections = remember { CuratorRepository.getCuratedSections() }
+    // Cartelera dinámica y Curaduría por Personajes (Filtrada en Modo Kids)
+    val allCuratorSections = remember { CuratorRepository.getCuratedSections() }
+    val curatorSections = remember(allCuratorSections, activeProfile) {
+        if (!activeProfile.isKidsMode) {
+            allCuratorSections
+        } else {
+            allCuratorSections.filter { sec ->
+                sec.name.contains("Prodigio", ignoreCase = true) ||
+                sec.name.contains("Universales", ignoreCase = true) ||
+                sec.name.contains("Infantil", ignoreCase = true)
+            }
+        }
+    }
     var selectedCuratedBook by remember { mutableStateOf<CuratedBook?>(null) }
     var isDownloadingCuratedBook by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = showDetailsModal || showUserProfilesModal || isDrawerOpen || selectedCuratedBook != null) {
-        if (selectedCuratedBook != null) selectedCuratedBook = null
+    BackHandler(enabled = showDetailsModal || showUserProfilesModal || isDrawerOpen || selectedCuratedBook != null || pendingProtectedAction != null) {
+        if (pendingProtectedAction != null) pendingProtectedAction = null
+        else if (selectedCuratedBook != null) selectedCuratedBook = null
         else if (showDetailsModal) showDetailsModal = false
         else if (showUserProfilesModal) showUserProfilesModal = false
         else if (isDrawerOpen) isDrawerOpen = false
@@ -164,7 +181,29 @@ fun HomeScreen(
         isLoading = false
     }
 
-    val allBooks = feedContent?.books ?: emptyList()
+    val rawBooks = feedContent?.books ?: emptyList()
+    val allBooks = remember(rawBooks, activeProfile) {
+        if (!activeProfile.isKidsMode) {
+            rawBooks
+        } else {
+            if (activeProfile.whitelistBookIds.isNotEmpty()) {
+                rawBooks.filter { b -> activeProfile.whitelistBookIds.contains(b.id) }
+            } else {
+                val kidsKeywords = listOf(
+                    "infantil", "niño", "nino", "cuento", "fabula", "fábula", "aventura",
+                    "principito", "alicia", "peter pan", "tesoro", "selva", "comic", "cómic", "dominio público"
+                )
+                rawBooks.filter { b ->
+                    val titleNorm = b.title.lowercase()
+                    val catNorm = b.category.lowercase()
+                    val tagsNorm = b.tags.map { it.lowercase() }
+                    kidsKeywords.any { k ->
+                        titleNorm.contains(k) || catNorm.contains(k) || tagsNorm.any { t -> t.contains(k) }
+                    }
+                }
+            }
+        }
+    }
 
     // Distinct tags
     val filterTags = remember(allBooks) {
@@ -340,6 +379,17 @@ fun HomeScreen(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
+                        if (activeProfile.isKidsMode) {
+                            Text("🎈", fontSize = 11.sp)
+                        }
+                        if (activeProfile.starsCount > 0) {
+                            Text(
+                                text = "⭐ ${activeProfile.starsCount}",
+                                color = if (isProfileFocused) Color(0xFF131315) else AmberWarm,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
                     }
                 }
 
@@ -544,11 +594,42 @@ fun HomeScreen(
                     DrawerItem.IMPORTAR_WIFI -> onNavigateToWifiImport()
                     DrawerItem.USUARIOS -> showUserProfilesModal = true
                     DrawerItem.LECTOR_3D -> onNavigateToReader()
-                    DrawerItem.AJUSTES -> onNavigateToSettings()
-                    DrawerItem.OPDS -> onNavigateToOpds()
+                    DrawerItem.AJUSTES -> {
+                        if (activeProfile.isKidsMode && householdPin != null) {
+                            pendingProtectedAction = { onNavigateToSettings() }
+                        } else {
+                            onNavigateToSettings()
+                        }
+                    }
+                    DrawerItem.OPDS -> {
+                        if (activeProfile.isKidsMode && householdPin != null) {
+                            pendingProtectedAction = { onNavigateToOpds() }
+                        } else {
+                            onNavigateToOpds()
+                        }
+                    }
                 }
             }
         )
+
+        // ==========================================
+        // PIN PAD DIALOG PARA ACCIONES PROTEGIDAS EN MODO KIDS
+        // ==========================================
+        val actionToRun = pendingProtectedAction
+        if (actionToRun != null && householdPin != null) {
+            PinPadDialog(
+                title = "Control Parental",
+                subtitle = "Introduce el PIN parental para continuar",
+                targetPin = householdPin,
+                onSuccess = {
+                    pendingProtectedAction = null
+                    actionToRun()
+                },
+                onDismiss = {
+                    pendingProtectedAction = null
+                }
+            )
+        }
 
         // ==========================================
         // MODAL DE GESTIÓN DE PERFILES DE USUARIO
@@ -560,8 +641,13 @@ fun HomeScreen(
                 onProfileChanged = { newProfile ->
                     activeProfile = newProfile
                     favoriteBooks = repository.getFavoriteBooks()
+                    showUserProfilesModal = false
                 },
-                onDismiss = { showUserProfilesModal = false }
+                onDismiss = {
+                    showUserProfilesModal = false
+                    activeProfile = repository.getActiveProfile()
+                    favoriteBooks = repository.getFavoriteBooks()
+                }
             )
         }
 

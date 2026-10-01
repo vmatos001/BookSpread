@@ -31,8 +31,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Star
 import com.example.calibretv.data.model.AmbientSound
 import com.example.calibretv.data.sound.AmbientSoundManager
+import com.example.calibretv.ui.components.QuizDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -118,6 +120,7 @@ fun PdfReaderScreen(
 
     var currentSpreadIndex by remember { mutableIntStateOf(0) }
     var showHud by remember { mutableStateOf(false) }
+    var showQuizModal by remember { mutableStateOf(false) }
 
     // Memoria estricta: Mantener en caché activa solo una ventana de 3 pliegos (anterior, actual, siguiente)
     val spreadCache = remember { mutableStateMapOf<Int, SpreadBitmaps>() }
@@ -251,7 +254,10 @@ fun PdfReaderScreen(
                             true
                         }
                         Key.Back, Key.Escape -> {
-                            if (showHud) {
+                            if (showQuizModal) {
+                                showQuizModal = false
+                                focusRequester.requestFocus()
+                            } else if (showHud) {
                                 showHud = false
                             } else {
                                 saveCurrentProgress(currentSpreadIndex)
@@ -484,6 +490,10 @@ fun PdfReaderScreen(
                                 ambientManager.play(nextSound, 0.4f)
                             }
                         },
+                        onOpenQuiz = {
+                            showHud = false
+                            showQuizModal = true
+                        },
                         onBack = {
                             saveCurrentProgress(currentSpreadIndex)
                             onBack()
@@ -518,6 +528,20 @@ fun PdfReaderScreen(
                 }
             }
         }
+
+        // ==========================================
+        // MINI-QUIZ DE COMPRENSIÓN LECTORA
+        // ==========================================
+        if (showQuizModal) {
+            QuizDialog(
+                bookTitle = book.title,
+                repository = repository,
+                onDismiss = {
+                    showQuizModal = false
+                    focusRequester.requestFocus()
+                }
+            )
+        }
     }
 }
 
@@ -527,6 +551,7 @@ private fun PdfReaderTopHud(
     bookAuthor: String,
     currentAmbient: AmbientSound,
     onCycleAmbient: () -> Unit,
+    onOpenQuiz: () -> Unit = {},
     onBack: () -> Unit
 ) {
     var isBackFocused by remember { mutableStateOf(false) }
@@ -617,6 +642,38 @@ private fun PdfReaderTopHud(
                 Text(
                     text = ambientLabel,
                     color = if (isAmbientFocused) BackgroundDark else if (currentAmbient != AmbientSound.NONE) AccentGold else AntiqueIvory,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // Botón Mini-Quiz de Comprensión
+            var isQuizFocused by remember { mutableStateOf(false) }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isQuizFocused) AccentGold else SurfaceContainerHigh)
+                    .border(
+                        width = 1.dp,
+                        color = if (isQuizFocused) AccentGold else Color(0xFF2A2826),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .onFocusChanged { isQuizFocused = it.isFocused }
+                    .focusable()
+                    .clickable { onOpenQuiz() }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Star,
+                    contentDescription = null,
+                    tint = if (isQuizFocused) BackgroundDark else AccentGold,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "Quiz",
+                    color = if (isQuizFocused) BackgroundDark else AntiqueIvory,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )

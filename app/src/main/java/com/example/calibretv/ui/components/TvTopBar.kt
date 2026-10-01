@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Wifi
@@ -42,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.calibretv.data.model.UserProfile
+import com.example.calibretv.theme.AccentGold
 import com.example.calibretv.theme.AmberWarm
 import com.example.calibretv.theme.BackgroundDark
 import com.example.calibretv.theme.CyanElectric
@@ -176,7 +178,7 @@ private fun UserProfileChip(
     val avatarBg = try {
         Color(android.graphics.Color.parseColor(profile.avatarColorHex))
     } catch (_: Exception) {
-        AmberWarm
+        AccentGold
     }
 
     Row(
@@ -184,12 +186,12 @@ private fun UserProfileChip(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier
             .scale(if (isFocused) 1.08f else 1.0f)
-            .shadow(if (isFocused) 10.dp else 0.dp, RoundedCornerShape(12.dp), spotColor = CyanElectric)
+            .shadow(if (isFocused) 10.dp else 0.dp, RoundedCornerShape(12.dp), spotColor = AccentGold)
             .clip(RoundedCornerShape(12.dp))
             .background(if (isFocused) SurfaceContainerHigh else Color(0xFF1A1A1E))
             .border(
                 width = if (isFocused) 2.dp else 1.dp,
-                color = if (isFocused) CyanElectric else Color(0xFF333338),
+                color = if (isFocused) AccentGold else Color(0xFF333338),
                 shape = RoundedCornerShape(12.dp)
             )
             .onFocusChanged { isFocused = it.isFocused }
@@ -211,10 +213,29 @@ private fun UserProfileChip(
         }
         Text(
             text = profile.name,
-            color = if (isFocused) CyanElectric else TextPrimary,
+            color = if (isFocused) AccentGold else TextPrimary,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold
         )
+        if (profile.isKidsMode) {
+            Text("🎈", fontSize = 11.sp)
+        }
+        if (profile.starsCount > 0) {
+            Text(
+                text = "⭐${profile.starsCount}",
+                color = AccentGold,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
+        if (profile.parentalPin != null) {
+            Icon(
+                imageVector = Icons.Default.Lock,
+                contentDescription = null,
+                tint = TextMuted,
+                modifier = Modifier.size(12.dp)
+            )
+        }
     }
 }
 

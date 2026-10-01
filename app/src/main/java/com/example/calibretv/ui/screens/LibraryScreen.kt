@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material3.CircularProgressIndicator
+import com.example.calibretv.ui.components.UserProfilesDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -92,14 +93,17 @@ fun LibraryScreen(
     var focusedBook by remember { mutableStateOf<Book?>(null) }
     var activeProfile by remember { mutableStateOf(repository.getActiveProfile()) }
 
+    var showUserProfilesModal by remember { mutableStateOf(false) }
+
     // Modal state for Book Details
     var showDetailsModal by remember { mutableStateOf(false) }
     var detailsBook by remember { mutableStateOf<Book?>(null) }
     var modalDescription by remember { mutableStateOf("") }
     val modalReadFocusRequester = remember { FocusRequester() }
 
-    BackHandler(enabled = showDetailsModal) {
-        showDetailsModal = false
+    BackHandler(enabled = showDetailsModal || showUserProfilesModal) {
+        if (showDetailsModal) showDetailsModal = false
+        else if (showUserProfilesModal) showUserProfilesModal = false
     }
 
     LaunchedEffect(showDetailsModal) {
@@ -130,7 +134,29 @@ fun LibraryScreen(
         isLoading = false
     }
 
-    val allBooks = feedContent?.books ?: emptyList()
+    val rawBooks = feedContent?.books ?: emptyList()
+    val allBooks = remember(rawBooks, activeProfile) {
+        if (!activeProfile.isKidsMode) {
+            rawBooks
+        } else {
+            if (activeProfile.whitelistBookIds.isNotEmpty()) {
+                rawBooks.filter { b -> activeProfile.whitelistBookIds.contains(b.id) }
+            } else {
+                val kidsKeywords = listOf(
+                    "infantil", "niño", "nino", "cuento", "fabula", "fábula", "aventura",
+                    "principito", "alicia", "peter pan", "tesoro", "selva", "comic", "cómic", "dominio público"
+                )
+                rawBooks.filter { b ->
+                    val titleNorm = b.title.lowercase()
+                    val catNorm = b.category.lowercase()
+                    val tagsNorm = b.tags.map { it.lowercase() }
+                    kidsKeywords.any { k ->
+                        titleNorm.contains(k) || catNorm.contains(k) || tagsNorm.any { t -> t.contains(k) }
+                    }
+                }
+            }
+        }
+    }
 
     // Filtros de Shelves de Calibre-Web dinámicos:
     // Personajes (filtros primarios) + otras clasificaciones (secundarias)
@@ -236,7 +262,7 @@ fun LibraryScreen(
                         currentTab = TvNavTab.BIBLIOTECA,
                         onTabSelected = onTabSelected,
                         activeProfile = activeProfile,
-                        onProfileClick = ::switchProfile
+                        onProfileClick = { showUserProfilesModal = true }
                     )
 
                     // Hero Spotlight Compacto
@@ -529,6 +555,24 @@ fun LibraryScreen(
                     }
                 }
             }
+        }
+
+        // ==========================================
+        // MODAL DE GESTIÓN DE PERFILES DE USUARIO
+        // ==========================================
+        if (showUserProfilesModal) {
+            UserProfilesDialog(
+                repository = repository,
+                activeProfile = activeProfile,
+                onProfileChanged = { newProf ->
+                    activeProfile = newProf
+                    showUserProfilesModal = false
+                },
+                onDismiss = {
+                    showUserProfilesModal = false
+                    activeProfile = repository.getActiveProfile()
+                }
+            )
         }
     }
 }

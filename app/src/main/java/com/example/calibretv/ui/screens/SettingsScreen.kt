@@ -114,8 +114,8 @@ fun SettingsScreen(
         }
     }
 
-    var settings by remember { mutableStateOf(repository.getReadingSettings()) }
     var activeProfile by remember { mutableStateOf(repository.getActiveProfile()) }
+    var settings by remember(activeProfile) { mutableStateOf(repository.getReadingSettings(activeProfile.id)) }
     var showUserProfilesModal by remember { mutableStateOf(false) }
     var saveFeedback by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()

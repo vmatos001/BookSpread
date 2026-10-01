@@ -101,14 +101,23 @@ class BookRepository(private val context: Context) {
     fun getServerConfig(): ServerConfig = prefs.getServerConfig()
     fun saveServerConfig(config: ServerConfig) = prefs.saveServerConfig(config)
 
-    fun getReadingSettings(): ReadingSettings = prefs.getReadingSettings()
-    fun saveReadingSettings(settings: ReadingSettings) = prefs.saveReadingSettings(settings)
+    fun getReadingSettings(profileId: String? = null): ReadingSettings = prefs.getReadingSettings(profileId)
+    fun saveReadingSettings(settings: ReadingSettings, profileId: String? = null) = prefs.saveReadingSettings(settings, profileId)
 
     fun getActiveProfile(): UserProfile = prefs.getActiveProfile()
     fun saveActiveProfile(profile: UserProfile) = prefs.saveActiveProfile(profile)
     fun getProfiles(): List<UserProfile> = prefs.getProfiles()
     fun saveProfiles(profiles: List<UserProfile>) = prefs.saveProfiles(profiles)
-    fun createProfile(name: String, colorHex: String = "#C5A059"): UserProfile = prefs.createProfile(name, colorHex)
+    fun createProfile(
+        name: String,
+        colorHex: String = "#C5A059",
+        isKidsMode: Boolean = false,
+        parentalPin: String? = null
+    ): UserProfile = prefs.createProfile(name, colorHex, isKidsMode, parentalPin)
+    fun updateProfile(updated: UserProfile) = prefs.updateProfile(updated)
+    fun deleteProfile(profileId: String): Boolean = prefs.deleteProfile(profileId)
+    fun awardStarToProfile(profileId: String, count: Int = 1): Int = prefs.awardStarToProfile(profileId, count)
+    fun updateProfileWhitelist(profileId: String, whitelistBookIds: List<String>) = prefs.updateProfileWhitelist(profileId, whitelistBookIds)
 
     // Favoritos
     fun isFavorite(bookId: String): Boolean = runBlocking(Dispatchers.IO) {

@@ -143,14 +143,14 @@ fun SetupWizardScreen(
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.ic_launcher),
-                            contentDescription = "CalibroTV",
+                            contentDescription = "BookSpread",
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(RoundedCornerShape(10.dp))
                         )
                         Column {
                             Text(
-                                text = "BIENVENIDO A CALIBROTV",
+                                text = "BIENVENIDO A BOOKSPREAD",
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = TextPrimary,
@@ -198,7 +198,7 @@ fun SetupWizardScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Text(
-                        text = "Conecta CalibroTV a tu biblioteca de Calibre o Calibre-Web para sincronizar tus libros con soporte EPUB:",
+                        text = "Conecta BookSpread a tu biblioteca de Calibre o Calibre-Web para sincronizar tus libros con soporte EPUB:",
                         fontSize = 13.sp,
                         color = TextMuted,
                         lineHeight = 18.sp
@@ -325,7 +325,7 @@ fun SetupWizardScreen(
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     Text(
-                        text = "CalibroTV soporta perfiles de lectura familiares. Cada usuario tiene su propia lista de favoritos y páginas leídas.",
+                        text = "BookSpread soporta perfiles de lectura familiares. Cada usuario tiene su propia lista de favoritos y páginas leídas.",
                         fontSize = 13.sp,
                         color = TextMuted,
                         lineHeight = 18.sp
@@ -662,7 +662,7 @@ fun SetupWizardScreen(
                             .padding(horizontal = 26.dp, vertical = 12.dp)
                     ) {
                         Text(
-                            text = "Comenzar a Disfrutar CalibroTV",
+                            text = "Comenzar a Disfrutar BookSpread",
                             color = Color(0xFF131315),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.ExtraBold

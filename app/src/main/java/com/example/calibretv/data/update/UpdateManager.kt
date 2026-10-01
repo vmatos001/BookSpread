@@ -16,7 +16,7 @@ import java.net.URL
 
 object UpdateManager {
 
-    private const val GITHUB_REPO = "vmatos001/calibrotv"
+    private const val GITHUB_REPO = "vmatos001/BookSpread"
     private const val RELEASES_API_URL = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
 
     data class ReleaseInfo(
@@ -63,7 +63,7 @@ object UpdateManager {
             conn.connectTimeout = 8000
             conn.readTimeout = 12000
             conn.setRequestProperty("Accept", "application/vnd.github.v3+json")
-            conn.setRequestProperty("User-Agent", "CalibreTV-AndroidTV")
+            conn.setRequestProperty("User-Agent", "BookSpread-AndroidTV")
             conn.connect()
 
             if (conn.responseCode !in 200..299) {
@@ -79,7 +79,7 @@ object UpdateManager {
 
             val assets = root.optJSONArray("assets")
             var apkUrl = ""
-            var apkName = "CalibroTV-$tagName.apk"
+            var apkName = "BookSpread-$tagName.apk"
             var apkSize = 0L
 
             if (assets != null) {
@@ -156,7 +156,7 @@ object UpdateManager {
                 conn.instanceFollowRedirects = false
                 conn.connectTimeout = 15000
                 conn.readTimeout = 30000
-                conn.setRequestProperty("User-Agent", "CalibreTV-AndroidTV")
+                conn.setRequestProperty("User-Agent", "BookSpread-AndroidTV")
                 conn.connect()
 
                 val code = conn.responseCode

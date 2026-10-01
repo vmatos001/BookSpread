@@ -78,9 +78,9 @@ import com.example.calibretv.data.model.CurlSpeed
 import com.example.calibretv.data.model.ReadingFont
 import com.example.calibretv.data.model.ReadingSettings
 import com.example.calibretv.data.model.ReadingTheme
+import com.example.calibretv.theme.AccentGold
 import com.example.calibretv.theme.AmberWarm
 import com.example.calibretv.theme.BackgroundDark
-import com.example.calibretv.theme.CyanElectric
 import com.example.calibretv.theme.SurfaceContainer
 import com.example.calibretv.theme.SurfaceContainerHigh
 import com.example.calibretv.theme.TextMuted
@@ -132,7 +132,7 @@ fun SettingsScreen(
                 }
                 is UpdateManager.CheckResult.UpToDate -> {
                     availableRelease = null
-                    updateCheckStatus = "✓ CalibroTV está actualizado (${res.currentVersion})"
+                    updateCheckStatus = "✓ BookSpread está actualizado (${res.currentVersion})"
                 }
                 is UpdateManager.CheckResult.Error -> {
                     availableRelease = null
@@ -196,12 +196,12 @@ fun SettingsScreen(
                         Icon(
                             imageVector = Icons.Default.Tune,
                             contentDescription = null,
-                            tint = CyanElectric,
+                            tint = AccentGold,
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
                             text = "CONTROL REMOTO TV • AJUSTES DIRECTOS",
-                            color = CyanElectric,
+                            color = AccentGold,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
@@ -227,7 +227,7 @@ fun SettingsScreen(
                         .background(if (isProfilePillFocused) SurfaceContainerHigh else SurfaceContainer)
                         .border(
                             width = if (isProfilePillFocused) 2.dp else 1.dp,
-                            color = if (isProfilePillFocused) CyanElectric else Color.Transparent,
+                            color = if (isProfilePillFocused) AccentGold else Color.Transparent,
                             shape = RoundedCornerShape(12.dp)
                         )
                         .onFocusChanged { isProfilePillFocused = it.isFocused }
@@ -788,8 +788,8 @@ fun SettingsScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = if (updateCheckStatus.isNotBlank()) updateCheckStatus else "Verifica directamente desde GitHub si hay nuevas versiones de CalibroTV disponibles.",
-                            color = if (availableRelease != null) CyanElectric else TextMuted,
+                            text = if (updateCheckStatus.isNotBlank()) updateCheckStatus else "Verifica directamente desde GitHub si hay nuevas versiones de BookSpread disponibles.",
+                            color = if (availableRelease != null) AccentGold else TextMuted,
                             fontSize = 11.sp
                         )
                     }
@@ -827,7 +827,7 @@ fun SettingsScreen(
             ) {
                 Text(
                     text = if (saveFeedback.isNotBlank()) saveFeedback else "ⓘ Aplicación instantánea con 1 solo click del control remoto.",
-                    color = if (saveFeedback.isNotBlank()) CyanElectric else TextMuted,
+                    color = if (saveFeedback.isNotBlank()) AccentGold else TextMuted,
                     fontSize = 12.sp
                 )
 
@@ -895,7 +895,7 @@ fun SettingsScreen(
                     .width(520.dp)
                     .clip(RoundedCornerShape(18.dp))
                     .background(SurfaceContainer)
-                    .border(1.5.dp, CyanElectric, RoundedCornerShape(18.dp))
+                    .border(1.5.dp, AccentGold, RoundedCornerShape(18.dp))
                     .padding(24.dp)
             ) {
                 Column(
@@ -927,7 +927,7 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "CalibroTV OTA Update",
+                                text = "BookSpread OTA Update",
                                 color = TextMuted,
                                 fontSize = 12.sp
                             )
@@ -965,13 +965,13 @@ fun SettingsScreen(
                             ) {
                                 Text(
                                     text = "Descargando actualización...",
-                                    color = CyanElectric,
+                                    color = AccentGold,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
                                     text = "$downloadProgress%",
-                                    color = AmberWarm,
+                                    color = AccentGold,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -982,7 +982,7 @@ fun SettingsScreen(
                                     .fillMaxWidth()
                                     .height(8.dp)
                                     .clip(RoundedCornerShape(4.dp)),
-                                color = CyanElectric,
+                                color = AccentGold,
                                 trackColor = SurfaceContainerHigh
                             )
                             if (downloadDetails.isNotBlank()) {
@@ -1072,12 +1072,12 @@ private fun SettingToggleButton(
     Box(
         modifier = modifier
             .scale(if (isFocused) 1.05f else 1.0f)
-            .shadow(if (isFocused) 10.dp else 0.dp, RoundedCornerShape(10.dp), spotColor = CyanElectric)
+            .shadow(if (isFocused) 10.dp else 0.dp, RoundedCornerShape(10.dp), spotColor = AccentGold)
             .clip(RoundedCornerShape(10.dp))
-            .background(if (isActive) AmberWarm.copy(alpha = 0.25f) else SurfaceContainerHigh)
+            .background(if (isActive) AccentGold.copy(alpha = 0.25f) else SurfaceContainerHigh)
             .border(
                 width = if (isFocused) 2.dp else if (isActive) 1.5.dp else 0.dp,
-                color = if (isFocused) CyanElectric else if (isActive) AmberWarm else Color.Transparent,
+                color = if (isFocused) AccentGold else if (isActive) AccentGold else Color.Transparent,
                 shape = RoundedCornerShape(10.dp)
             )
             .onFocusChanged { isFocused = it.isFocused }
@@ -1092,12 +1092,12 @@ private fun SettingToggleButton(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (isActive) AmberWarm else TextMuted,
+                tint = if (isActive) AccentGold else TextMuted,
                 modifier = Modifier.size(22.dp)
             )
             Text(
                 text = title,
-                color = if (isActive) AmberWarm else TextPrimary,
+                color = if (isActive) AccentGold else TextPrimary,
                 fontSize = 12.sp,
                 fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium
             )
@@ -1120,12 +1120,12 @@ private fun ThemeOptionItem(
     Box(
         modifier = modifier
             .scale(if (isFocused) 1.05f else 1.0f)
-            .shadow(if (isFocused) 10.dp else 0.dp, RoundedCornerShape(10.dp), spotColor = CyanElectric)
+            .shadow(if (isFocused) 10.dp else 0.dp, RoundedCornerShape(10.dp), spotColor = AccentGold)
             .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
             .border(
                 width = if (isFocused) 2.dp else if (isSelected) 2.dp else 1.dp,
-                color = if (isFocused) CyanElectric else if (isSelected) CyanElectric else Color(0xFF333333),
+                color = if (isFocused) AccentGold else if (isSelected) AccentGold else Color(0xFF333333),
                 shape = RoundedCornerShape(10.dp)
             )
             .onFocusChanged { isFocused = it.isFocused }
@@ -1136,8 +1136,8 @@ private fun ThemeOptionItem(
             Box(
                 modifier = Modifier
                     .size(20.dp)
-                    .background(if (isSelected) CyanElectric else Color.Transparent, CircleShape)
-                    .border(1.dp, if (isSelected) CyanElectric else Color(0xFF666666), CircleShape),
+                    .background(if (isSelected) AccentGold else Color.Transparent, CircleShape)
+                    .border(1.dp, if (isSelected) AccentGold else Color(0xFF666666), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 if (isSelected) {
@@ -1176,12 +1176,12 @@ private fun SegmentedOption(
     Box(
         modifier = modifier
             .scale(if (isFocused) 1.05f else 1.0f)
-            .shadow(if (isFocused) 8.dp else 0.dp, RoundedCornerShape(8.dp), spotColor = CyanElectric)
+            .shadow(if (isFocused) 8.dp else 0.dp, RoundedCornerShape(8.dp), spotColor = AccentGold)
             .clip(RoundedCornerShape(8.dp))
-            .background(if (isSelected) AmberWarm else SurfaceContainerHigh)
+            .background(if (isSelected) AccentGold else SurfaceContainerHigh)
             .border(
                 width = if (isFocused) 2.dp else 0.dp,
-                color = if (isFocused) CyanElectric else Color.Transparent,
+                color = if (isFocused) AccentGold else Color.Transparent,
                 shape = RoundedCornerShape(8.dp)
             )
             .onFocusChanged { isFocused = it.isFocused }
@@ -1212,12 +1212,12 @@ private fun TvActionButton(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier
             .scale(if (isFocused) 1.05f else 1.0f)
-            .shadow(if (isFocused) 10.dp else 0.dp, RoundedCornerShape(10.dp), spotColor = CyanElectric)
+            .shadow(if (isFocused) 10.dp else 0.dp, RoundedCornerShape(10.dp), spotColor = AccentGold)
             .clip(RoundedCornerShape(10.dp))
-            .background(if (isPrimary || isFocused) AmberWarm else SurfaceContainerHigh)
+            .background(if (isPrimary || isFocused) AccentGold else SurfaceContainerHigh)
             .border(
                 width = if (isFocused) 2.dp else 0.dp,
-                color = if (isFocused) CyanElectric else Color.Transparent,
+                color = if (isFocused) AccentGold else Color.Transparent,
                 shape = RoundedCornerShape(10.dp)
             )
             .onFocusChanged { isFocused = it.isFocused }

@@ -96,10 +96,11 @@ import com.example.calibretv.data.model.CurlSpeed
 import com.example.calibretv.data.model.ReadingFont
 import com.example.calibretv.data.model.ReadingSettings
 import com.example.calibretv.data.model.ReadingTheme
+import com.example.calibretv.theme.AccentGold
 import com.example.calibretv.theme.AmberWarm
 import com.example.calibretv.theme.BackgroundDark
-import com.example.calibretv.theme.CyanElectric
 import com.example.calibretv.theme.FontProvider
+import com.example.calibretv.theme.SurfaceContainer
 import com.example.calibretv.theme.SurfaceContainerHigh
 import com.example.calibretv.theme.TextMuted
 import com.example.calibretv.theme.TextPrimary
@@ -274,9 +275,9 @@ fun ReaderScreen(
     // Palette Colors based on Stitch Reading Themes (Including Pergamino Clásico)
     val (pageBg, pageText, accentColor) = when (settings.theme) {
         ReadingTheme.PERGAMINO -> Triple(Color(0xFFF4F1EA), Color(0xFF2C2A29), Color(0xFFC29B38))
-        ReadingTheme.OLED_PURE -> Triple(Color(0xFF000000), Color(0xFFE5E1E4), CyanElectric)
-        ReadingTheme.SEPIA_CINE -> Triple(Color(0xFF26201A), Color(0xFFE6DBCC), AmberWarm)
-        ReadingTheme.NIGHT_AMBER -> Triple(Color(0xFF0D0D0D), Color(0xFFFFC664), AmberWarm)
+        ReadingTheme.OLED_PURE -> Triple(Color(0xFF000000), Color(0xFFE5E0D8), AccentGold)
+        ReadingTheme.SEPIA_CINE -> Triple(Color(0xFF26201A), Color(0xFFE6DBCC), AccentGold)
+        ReadingTheme.NIGHT_AMBER -> Triple(Color(0xFF0D0D0D), Color(0xFFFFC664), AccentGold)
         ReadingTheme.PROYECTOR_BLANCO -> Triple(Color(0xFFFFFFFF), Color(0xFF1A1A1A), Color(0xFF0066CC))
         ReadingTheme.CINE_OSCURO -> Triple(Color(0xFF000000), Color(0xFF8B7355), Color(0xFF6B4F2A))
     }
@@ -361,7 +362,7 @@ fun ReaderScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    CircularProgressIndicator(color = CyanElectric)
+                    CircularProgressIndicator(color = AccentGold)
                     Text("Cargando pliegos 16:9...", color = Color.White.copy(alpha = 0.7f), fontSize = 16.sp)
                 }
             }
@@ -703,8 +704,8 @@ fun ReaderScreen(
                 modifier = Modifier
                     .fillMaxWidth(0.85f)
                     .clip(RoundedCornerShape(18.dp))
-                    .background(Color(0xFF131315).copy(alpha = 0.96f))
-                    .border(1.5.dp, CyanElectric.copy(alpha = 0.4f), RoundedCornerShape(18.dp))
+                    .background(SurfaceContainer.copy(alpha = 0.96f))
+                    .border(1.5.dp, AccentGold.copy(alpha = 0.4f), RoundedCornerShape(18.dp))
                     .padding(horizontal = 24.dp, vertical = 14.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -721,7 +722,7 @@ fun ReaderScreen(
                             Icon(
                                 imageVector = Icons.Default.MenuBook,
                                 contentDescription = null,
-                                tint = AmberWarm,
+                                tint = AccentGold,
                                 modifier = Modifier.size(16.dp)
                             )
                             val leftPageNum = currentSpreadIndex * 2 + 1
@@ -737,7 +738,7 @@ fun ReaderScreen(
 
                         Text(
                             text = "$currentProgressPct% • $remainingMin min restantes",
-                            color = CyanElectric,
+                            color = AccentGold,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -754,7 +755,7 @@ fun ReaderScreen(
                             modifier = Modifier
                                 .fillMaxWidth(currentProgressPct / 100f)
                                 .height(4.dp)
-                                .background(CyanElectric, RoundedCornerShape(2.dp))
+                                .background(AccentGold, RoundedCornerShape(2.dp))
                         )
                     }
 
@@ -1108,12 +1109,12 @@ private fun StitchHudButton(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = modifier
             .scale(if (isFocused) 1.06f else 1.0f)
-            .shadow(if (isFocused) 8.dp else 0.dp, RoundedCornerShape(8.dp), spotColor = CyanElectric)
+            .shadow(if (isFocused) 8.dp else 0.dp, RoundedCornerShape(8.dp), spotColor = AccentGold)
             .clip(RoundedCornerShape(8.dp))
-            .background(if (isPrimary || isFocused) AmberWarm else SurfaceContainerHigh)
+            .background(if (isPrimary || isFocused) AccentGold else SurfaceContainerHigh)
             .border(
                 width = if (isFocused) 2.dp else 0.dp,
-                color = if (isFocused) CyanElectric else Color.Transparent,
+                color = if (isFocused) AccentGold else Color.Transparent,
                 shape = RoundedCornerShape(8.dp)
             )
             .onFocusChanged { isFocused = it.isFocused }

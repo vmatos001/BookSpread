@@ -49,9 +49,9 @@ import androidx.compose.ui.unit.sp
 import com.example.calibretv.data.BookRepository
 import com.example.calibretv.data.server.QrCodeGenerator
 import com.example.calibretv.data.server.WifiImportServer
+import com.example.calibretv.theme.AccentGold
 import com.example.calibretv.theme.AmberWarm
 import com.example.calibretv.theme.BackgroundDark
-import com.example.calibretv.theme.CyanElectric
 import com.example.calibretv.theme.SurfaceContainer
 import com.example.calibretv.theme.TextMuted
 import com.example.calibretv.theme.TextPrimary
@@ -146,7 +146,7 @@ fun WifiImportScreen(
 
                 Text(
                     text = if (isServerRunning) serverUrl else "Servidor Detenido",
-                    color = if (isServerRunning) CyanElectric else Color.Gray,
+                    color = if (isServerRunning) AccentGold else Color.Gray,
                     fontSize = 28.sp,
                     fontWeight = FontWeight.ExtraBold
                 )
@@ -230,7 +230,7 @@ fun WifiImportScreen(
                         .size(260.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(Color.White)
-                        .border(2.dp, CyanElectric, RoundedCornerShape(16.dp))
+                        .border(2.dp, AccentGold, RoundedCornerShape(16.dp))
                         .padding(16.dp),
                     contentAlignment = Alignment.Center
                 ) {

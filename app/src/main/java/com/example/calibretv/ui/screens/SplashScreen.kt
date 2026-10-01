@@ -36,9 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.calibretv.R
 import com.example.calibretv.data.BookRepository
-import com.example.calibretv.theme.AmberWarm
+import com.example.calibretv.theme.AccentGold
 import com.example.calibretv.theme.BackgroundDark
-import com.example.calibretv.theme.CyanElectric
 import com.example.calibretv.theme.TextMuted
 import com.example.calibretv.theme.TextPrimary
 import kotlinx.coroutines.delay
@@ -95,14 +94,14 @@ fun SplashScreen(
             Box(
                 modifier = Modifier
                     .size(140.dp)
-                    .shadow(elevation = 24.dp, shape = RoundedCornerShape(32.dp), spotColor = CyanElectric)
+                    .shadow(elevation = 24.dp, shape = RoundedCornerShape(32.dp), spotColor = AccentGold)
                     .clip(RoundedCornerShape(32.dp))
-                    .border(2.dp, CyanElectric.copy(alpha = 0.7f), RoundedCornerShape(32.dp)),
+                    .border(2.dp, AccentGold.copy(alpha = 0.7f), RoundedCornerShape(32.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_launcher),
-                    contentDescription = "CalibroTV Logo",
+                    contentDescription = "BookSpread Logo",
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -110,7 +109,7 @@ fun SplashScreen(
             Spacer(modifier = Modifier.height(28.dp))
 
             Text(
-                text = "CalibroTV",
+                text = "BookSpread",
                 fontSize = 42.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = TextPrimary,
@@ -120,7 +119,7 @@ fun SplashScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Tu biblioteca de Calibre-Web en pantalla grande",
+                text = "The 3D Dual-Page Reader for Android TV",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Normal,
                 color = TextMuted,
@@ -132,7 +131,7 @@ fun SplashScreen(
             // TV loading indicator
             CircularProgressIndicator(
                 modifier = Modifier.size(28.dp),
-                color = AmberWarm,
+                color = AccentGold,
                 strokeWidth = 2.5.dp
             )
         }

@@ -53,9 +53,9 @@ flowchart LR
 - Actualizar títulos en `strings.xml` y tema visual inicial.
 
 ### 1.3 Verificación de la Fase 1
-- Ejecutar compilación de Release.
-- Comprobar que el APK resultante pese entre **8 MB y 12 MB**.
-- **Commit:** `feat(core): rebrand to BookSpread and optimize APK size with R8 shrinking`
+- Ejecutar compilación de Release. -> **COMPLETADO (BUILD SUCCESSFUL en Gradle 9.1 / JDK 17)**
+- Comprobar que el APK resultante pese entre **8 MB y 12 MB**. -> **SUPERADO: APK final de 5.91 MB (6,201,214 bytes), reducción del 71.8% desde 22 MB**.
+- **Commit:** `feat(core): rebrand to BookSpread and optimize APK size with R8 shrinking` -> **EJECUTADO**
 
 ---
 

@@ -5,14 +5,14 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val TvDarkColorScheme = darkColorScheme(
-    primary = AmberWarm,
+private val BookSpreadDarkColorScheme = darkColorScheme(
+    primary = AccentGold,
     onPrimary = Color.Black,
     primaryContainer = SurfaceContainerHigh,
-    onPrimaryContainer = PrimaryGold,
-    secondary = CyanElectric,
+    onPrimaryContainer = BrightGold,
+    secondary = AccentGold,
     onSecondary = Color.Black,
-    background = BackgroundDark,
+    background = SurfaceBase,
     onBackground = TextPrimary,
     surface = SurfaceBase,
     onSurface = TextPrimary,
@@ -21,12 +21,22 @@ private val TvDarkColorScheme = darkColorScheme(
 )
 
 @Composable
-fun CalibreTVTheme(
+fun BookSpreadTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = TvDarkColorScheme,
+        colorScheme = BookSpreadDarkColorScheme,
         typography = Typography,
         content = content
     )
+}
+
+/**
+ * Alias retrocompatible para CalibreTVTheme durante la migración arquitectónica.
+ */
+@Composable
+fun CalibreTVTheme(
+    content: @Composable () -> Unit
+) {
+    BookSpreadTheme(content = content)
 }

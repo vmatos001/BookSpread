@@ -39,9 +39,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.calibretv.data.BookRepository
+import com.example.calibretv.theme.AccentGold
 import com.example.calibretv.theme.AmberWarm
 import com.example.calibretv.theme.BackgroundDark
-import com.example.calibretv.theme.CyanElectric
 import com.example.calibretv.theme.SurfaceContainerHigh
 import com.example.calibretv.theme.TextMuted
 import com.example.calibretv.theme.TextPrimary
@@ -127,7 +127,7 @@ fun ServerScreen(
                     )
                     Text(
                         text = "• Conexión OPDS",
-                        color = CyanElectric,
+                        color = AccentGold,
                         fontSize = 19.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -157,7 +157,7 @@ fun ServerScreen(
                             .background(SurfaceContainerHigh, RoundedCornerShape(8.dp))
                             .border(
                                 width = if (isUrlFocused) 2.dp else 1.dp,
-                                color = if (isUrlFocused) CyanElectric else Color(0xFF333338),
+                                color = if (isUrlFocused) AccentGold else Color(0xFF333338),
                                 shape = RoundedCornerShape(8.dp)
                             )
                             .padding(horizontal = 16.dp, vertical = 12.dp)
@@ -166,7 +166,7 @@ fun ServerScreen(
                             value = config.serverUrl,
                             onValueChange = { config = config.copy(serverUrl = it) },
                             textStyle = TextStyle(color = TextPrimary, fontSize = 15.sp),
-                            cursorBrush = SolidColor(CyanElectric),
+                            cursorBrush = SolidColor(AccentGold),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                             keyboardActions = KeyboardActions(
                                 onNext = { userFocusRequester.requestFocus() }
@@ -193,7 +193,7 @@ fun ServerScreen(
                                 .background(SurfaceContainerHigh, RoundedCornerShape(8.dp))
                                 .border(
                                     width = if (isUserFocused) 2.dp else 1.dp,
-                                    color = if (isUserFocused) CyanElectric else Color(0xFF333338),
+                                    color = if (isUserFocused) AccentGold else Color(0xFF333338),
                                     shape = RoundedCornerShape(8.dp)
                                 )
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
@@ -202,7 +202,7 @@ fun ServerScreen(
                                 value = config.username,
                                 onValueChange = { config = config.copy(username = it) },
                                 textStyle = TextStyle(color = TextPrimary, fontSize = 15.sp),
-                                cursorBrush = SolidColor(CyanElectric),
+                                cursorBrush = SolidColor(AccentGold),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                                 keyboardActions = KeyboardActions(
                                     onNext = { passFocusRequester.requestFocus() }
@@ -224,7 +224,7 @@ fun ServerScreen(
                                 .background(SurfaceContainerHigh, RoundedCornerShape(8.dp))
                                 .border(
                                     width = if (isPassFocused) 2.dp else 1.dp,
-                                    color = if (isPassFocused) CyanElectric else Color(0xFF333338),
+                                    color = if (isPassFocused) AccentGold else Color(0xFF333338),
                                     shape = RoundedCornerShape(8.dp)
                                 )
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
@@ -234,7 +234,7 @@ fun ServerScreen(
                                 onValueChange = { config = config.copy(password = it) },
                                 visualTransformation = PasswordVisualTransformation(),
                                 textStyle = TextStyle(color = TextPrimary, fontSize = 15.sp),
-                                cursorBrush = SolidColor(CyanElectric),
+                                cursorBrush = SolidColor(AccentGold),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                                 keyboardActions = KeyboardActions(
                                     onDone = { connectFocusRequester.requestFocus() }
@@ -252,8 +252,8 @@ fun ServerScreen(
                 Text(
                     text = statusText,
                     color = when {
-                        isChecking -> AmberWarm
-                        statusText.startsWith("✓") -> CyanElectric
+                        isChecking -> AccentGold
+                        statusText.startsWith("✓") -> AccentGold
                         statusText.startsWith("⚠") -> Color(0xFFFF5252)
                         else -> TextMuted
                     },
@@ -271,10 +271,10 @@ fun ServerScreen(
                     Box(
                         modifier = Modifier
                             .scale(if (isConnectFocused) 1.06f else 1.0f)
-                            .background(AmberWarm, RoundedCornerShape(10.dp))
+                            .background(AccentGold, RoundedCornerShape(10.dp))
                             .border(
                                 width = if (isConnectFocused) 2.dp else 0.dp,
-                                color = if (isConnectFocused) CyanElectric else Color.Transparent,
+                                color = if (isConnectFocused) AccentGold else Color.Transparent,
                                 shape = RoundedCornerShape(10.dp)
                             )
                             .focusRequester(connectFocusRequester)
@@ -314,7 +314,7 @@ fun ServerScreen(
                             .background(SurfaceContainerHigh, RoundedCornerShape(10.dp))
                             .border(
                                 width = if (isDemoFocused) 2.dp else 0.dp,
-                                color = if (isDemoFocused) CyanElectric else Color.Transparent,
+                                color = if (isDemoFocused) AccentGold else Color.Transparent,
                                 shape = RoundedCornerShape(10.dp)
                             )
                             .onFocusChanged { isDemoFocused = it.isFocused }

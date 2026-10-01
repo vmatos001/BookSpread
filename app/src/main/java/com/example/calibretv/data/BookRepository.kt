@@ -19,11 +19,14 @@ import com.example.calibretv.data.provider.LocalRoomProvider
 import com.example.calibretv.data.provider.OpdsProvider
 import com.example.calibretv.data.storage.AppDatabase
 import com.example.calibretv.data.storage.BookEntity
+import com.example.calibretv.data.storage.BookNoteEntity
 import com.example.calibretv.data.storage.FavoriteEntity
 import com.example.calibretv.data.storage.PreferencesManager
 import com.example.calibretv.data.storage.ReadingProgressEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -40,6 +43,10 @@ class BookRepository(private val context: Context) {
     private val bookDao = db.bookDao()
     private val progressDao = db.progressDao()
     private val favoriteDao = db.favoriteDao()
+    private val bookNoteDao = db.bookNoteDao()
+
+    private val _noteAddedEvents = MutableSharedFlow<BookNoteEntity>(extraBufferCapacity = 20)
+    val noteAddedEvents = _noteAddedEvents.asSharedFlow()
 
     // Proveedores desacoplados de fuentes de libros
     val localProvider = LocalRoomProvider(context)
@@ -143,6 +150,37 @@ class BookRepository(private val context: Context) {
     fun getFavoriteBooks(): List<Book> = runBlocking(Dispatchers.IO) {
         val favIds = favoriteDao.getFavoriteIds(prefs.getActiveProfile().id)
         if (favIds.isEmpty()) emptyList() else bookDao.getBooksByIds(favIds).map { it.toBook() }
+    }
+
+    // Notas y Reseñas (Mobile Companion)
+    fun addNote(
+        bookId: String,
+        text: String,
+        spreadIndex: Int = 0,
+        profileId: String = prefs.getActiveProfile().id
+    ): BookNoteEntity = runBlocking(Dispatchers.IO) {
+        val note = BookNoteEntity(
+            id = "note_${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(6)}",
+            bookId = bookId,
+            profileId = profileId,
+            noteText = text.trim(),
+            spreadIndex = spreadIndex,
+            createdAt = System.currentTimeMillis()
+        )
+        bookNoteDao.insertNote(note)
+        _noteAddedEvents.tryEmit(note)
+        note
+    }
+
+    fun getNotes(
+        bookId: String,
+        profileId: String = prefs.getActiveProfile().id
+    ): List<BookNoteEntity> = runBlocking(Dispatchers.IO) {
+        bookNoteDao.getNotes(bookId, profileId)
+    }
+
+    fun deleteNote(noteId: String) = runBlocking(Dispatchers.IO) {
+        bookNoteDao.deleteNote(noteId)
     }
 
     // Catálogo en Caché / Base Local

@@ -29,11 +29,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Star
 import com.example.calibretv.data.model.AmbientSound
 import com.example.calibretv.data.sound.AmbientSoundManager
+import com.example.calibretv.ui.components.NotesModal
 import com.example.calibretv.ui.components.QuizDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -121,6 +123,7 @@ fun PdfReaderScreen(
     var currentSpreadIndex by remember { mutableIntStateOf(0) }
     var showHud by remember { mutableStateOf(false) }
     var showQuizModal by remember { mutableStateOf(false) }
+    var showNotesModal by remember { mutableStateOf(false) }
 
     // Memoria estricta: Mantener en caché activa solo una ventana de 3 pliegos (anterior, actual, siguiente)
     val spreadCache = remember { mutableStateMapOf<Int, SpreadBitmaps>() }
@@ -254,8 +257,9 @@ fun PdfReaderScreen(
                             true
                         }
                         Key.Back, Key.Escape -> {
-                            if (showQuizModal) {
+                            if (showQuizModal || showNotesModal) {
                                 showQuizModal = false
+                                showNotesModal = false
                                 focusRequester.requestFocus()
                             } else if (showHud) {
                                 showHud = false
@@ -494,6 +498,10 @@ fun PdfReaderScreen(
                             showHud = false
                             showQuizModal = true
                         },
+                        onOpenNotes = {
+                            showHud = false
+                            showNotesModal = true
+                        },
                         onBack = {
                             saveCurrentProgress(currentSpreadIndex)
                             onBack()
@@ -542,6 +550,20 @@ fun PdfReaderScreen(
                 }
             )
         }
+
+        // ==========================================
+        // ANOTACIONES Y RESEÑAS MÓVILES (FASE 7)
+        // ==========================================
+        if (showNotesModal) {
+            NotesModal(
+                book = book,
+                repository = repository,
+                onDismiss = {
+                    showNotesModal = false
+                    focusRequester.requestFocus()
+                }
+            )
+        }
     }
 }
 
@@ -552,6 +574,7 @@ private fun PdfReaderTopHud(
     currentAmbient: AmbientSound,
     onCycleAmbient: () -> Unit,
     onOpenQuiz: () -> Unit = {},
+    onOpenNotes: () -> Unit = {},
     onBack: () -> Unit
 ) {
     var isBackFocused by remember { mutableStateOf(false) }
@@ -674,6 +697,38 @@ private fun PdfReaderTopHud(
                 Text(
                     text = "Quiz",
                     color = if (isQuizFocused) BackgroundDark else AntiqueIvory,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // Botón Anotaciones Móviles
+            var isNotesFocused by remember { mutableStateOf(false) }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isNotesFocused) AccentGold else SurfaceContainerHigh)
+                    .border(
+                        width = 1.dp,
+                        color = if (isNotesFocused) AccentGold else Color(0xFF2A2826),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .onFocusChanged { isNotesFocused = it.isFocused }
+                    .focusable()
+                    .clickable { onOpenNotes() }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Edit,
+                    contentDescription = null,
+                    tint = if (isNotesFocused) BackgroundDark else AccentGold,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "Notas",
+                    color = if (isNotesFocused) BackgroundDark else AntiqueIvory,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )

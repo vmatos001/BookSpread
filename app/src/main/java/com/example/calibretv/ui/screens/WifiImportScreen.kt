@@ -62,7 +62,7 @@ fun WifiImportScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val wifiServer = remember { WifiImportServer(context, repository) }
+    val wifiServer = remember { WifiImportServer.getInstance(context, repository) }
     var isServerRunning by remember { mutableStateOf(false) }
     var serverUrl by remember { mutableStateOf("") }
     var qrBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }

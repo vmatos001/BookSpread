@@ -36,12 +36,14 @@ import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timer
@@ -49,7 +51,9 @@ import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import com.example.calibretv.ui.components.NotesModal
 import com.example.calibretv.ui.components.QuizDialog
+import com.example.calibretv.ui.components.QuoteCardModal
 import com.example.calibretv.ui.components.UserProfilesDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -141,6 +145,8 @@ fun ReaderScreen(
     var showTopBar by remember { mutableStateOf(false) }    // Triggered by DPAD_UP
     var showQuizModal by remember { mutableStateOf(false) }
     var showProfilesModal by remember { mutableStateOf(false) }
+    var showNotesModal by remember { mutableStateOf(false) }
+    var showQuoteCardModal by remember { mutableStateOf(false) }
 
     val curlAnim = remember { Animatable(0f) }
     val readerFocusRequester = remember { FocusRequester() }
@@ -303,10 +309,12 @@ fun ReaderScreen(
             .focusable()
             .onKeyEvent { keyEvent ->
                 if (keyEvent.type == KeyEventType.KeyDown) {
-                    if (showQuizModal || showProfilesModal) {
+                    if (showQuizModal || showProfilesModal || showNotesModal || showQuoteCardModal) {
                         if (keyEvent.key == Key.Back || keyEvent.key == Key.Escape) {
                             showQuizModal = false
                             showProfilesModal = false
+                            showNotesModal = false
+                            showQuoteCardModal = false
                             readerFocusRequester.requestFocus()
                             true
                         } else false
@@ -1014,6 +1022,26 @@ fun ReaderScreen(
                                 }
                             )
                         }
+                        item {
+                            StitchHudButton(
+                                title = "📝 Notas Móvil",
+                                icon = Icons.Filled.Edit,
+                                onClick = {
+                                    showBottomHud = false
+                                    showNotesModal = true
+                                }
+                            )
+                        }
+                        item {
+                            StitchHudButton(
+                                title = "✨ Quote Card",
+                                icon = Icons.Filled.Share,
+                                onClick = {
+                                    showBottomHud = false
+                                    showQuoteCardModal = true
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -1050,6 +1078,39 @@ fun ReaderScreen(
                     showProfilesModal = false
                     activeProfile = repository.getActiveProfile()
                     settings = repository.getReadingSettings(activeProfile.id)
+                    readerFocusRequester.requestFocus()
+                }
+            )
+        }
+
+        // ==========================================
+        // ANOTACIONES Y RESEÑAS MÓVILES (FASE 7)
+        // ==========================================
+        if (showNotesModal) {
+            NotesModal(
+                book = book,
+                repository = repository,
+                onDismiss = {
+                    showNotesModal = false
+                    readerFocusRequester.requestFocus()
+                }
+            )
+        }
+
+        // ==========================================
+        // QUOTE CARD VIRAL 9:16 (FASE 7)
+        // ==========================================
+        if (showQuoteCardModal) {
+            val currentSpread = spreads.getOrNull(currentSpreadIndex)
+            val paragraphs = currentSpread?.leftPage?.paragraphs.orEmpty() + currentSpread?.rightPage?.paragraphs.orEmpty()
+            val selectedQuote = paragraphs.firstOrNull { it.length in 40..300 }
+                ?: paragraphs.firstOrNull { it.isNotBlank() }?.take(220)
+            QuoteCardModal(
+                book = book,
+                repository = repository,
+                selectedQuote = selectedQuote,
+                onDismiss = {
+                    showQuoteCardModal = false
                     readerFocusRequester.requestFocus()
                 }
             )

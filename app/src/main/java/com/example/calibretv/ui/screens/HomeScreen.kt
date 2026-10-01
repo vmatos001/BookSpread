@@ -80,12 +80,19 @@ import com.example.calibretv.theme.BackgroundDark
 import com.example.calibretv.theme.SurfaceContainer
 import com.example.calibretv.theme.SurfaceContainerHigh
 import com.example.calibretv.theme.SurfaceContainerHighest
-import com.example.calibretv.theme.SurfaceContainerHigh
 import com.example.calibretv.theme.SurfaceRaised
 import com.example.calibretv.theme.TextMuted
 import com.example.calibretv.theme.TextPrimary
+import com.example.calibretv.data.curator.CuratedBook
+import com.example.calibretv.data.curator.CuratorRepository
+import com.example.calibretv.data.curator.CuratorSection
+import com.example.calibretv.ui.components.CuratedBookModal
+import com.example.calibretv.ui.components.CuratorRow
 import com.example.calibretv.ui.components.DrawerItem
 import com.example.calibretv.ui.components.TvSideDrawer
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -100,6 +107,8 @@ fun HomeScreen(
     onNavigateToReader: () -> Unit,
     onNavigateToWifiImport: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var feedContent by remember { mutableStateOf<OpdsFeedContent?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var selectedCategory by remember { mutableStateOf("Todos") }
@@ -115,8 +124,14 @@ fun HomeScreen(
     var modalDescription by remember { mutableStateOf("") }
     val modalReadFocusRequester = remember { FocusRequester() }
 
-    BackHandler(enabled = showDetailsModal || showUserProfilesModal || isDrawerOpen) {
-        if (showDetailsModal) showDetailsModal = false
+    // Cartelera dinámica y Curaduría por Personajes
+    val curatorSections = remember { CuratorRepository.getCuratedSections() }
+    var selectedCuratedBook by remember { mutableStateOf<CuratedBook?>(null) }
+    var isDownloadingCuratedBook by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = showDetailsModal || showUserProfilesModal || isDrawerOpen || selectedCuratedBook != null) {
+        if (selectedCuratedBook != null) selectedCuratedBook = null
+        else if (showDetailsModal) showDetailsModal = false
         else if (showUserProfilesModal) showUserProfilesModal = false
         else if (isDrawerOpen) isDrawerOpen = false
     }
@@ -497,6 +512,19 @@ fun HomeScreen(
                                 }
                             )
                         }
+
+                        // ----------------------------------------------------
+                        // Cartelera Dinámica y Curaduría por Personajes
+                        // ----------------------------------------------------
+                        curatorSections.forEach { section ->
+                            CuratorRow(
+                                section = section,
+                                onBookClick = { curatedBook ->
+                                    selectedCuratedBook = curatedBook
+                                },
+                                onLeftAtBoundary = { isDrawerOpen = true }
+                            )
+                        }
                     }
                 }
             }
@@ -717,6 +745,40 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+
+        // ==========================================
+        // MODAL DE LIBRO CURADO (Compra QR / Descarga)
+        // ==========================================
+        selectedCuratedBook?.let { curatedBook ->
+            val isDownloaded = remember(curatedBook.id, allBooks) {
+                CuratorRepository.isBookDownloaded(curatedBook.id, repository)
+            }
+            CuratedBookModal(
+                book = curatedBook,
+                isDownloaded = isDownloaded,
+                isDownloading = isDownloadingCuratedBook,
+                onDownload = {
+                    isDownloadingCuratedBook = true
+                    coroutineScope.launch {
+                        val res = CuratorRepository.downloadPublicDomainBook(context, curatedBook, repository)
+                        if (res.isSuccess) {
+                            feedContent = repository.getFeed()
+                        }
+                        isDownloadingCuratedBook = false
+                    }
+                },
+                onRead = {
+                    val localBook = repository.getCachedBooks().find { it.id == curatedBook.id }
+                    if (localBook != null) {
+                        selectedCuratedBook = null
+                        onBookSelected(localBook)
+                    }
+                },
+                onDismiss = {
+                    selectedCuratedBook = null
+                }
+            )
         }
     }
 }

@@ -48,6 +48,11 @@
 -keep class com.example.calibretv.data.server.** { *; }
 -keep class com.example.calibretv.data.provider.** { *; }
 -keep class com.example.calibretv.data.pdf.** { *; }
+-keep class com.example.calibretv.data.curator.** { *; }
+
+# ZXing QR Code Library
+-keep class com.google.zxing.** { *; }
+-dontwarn com.google.zxing.**
 
 # ------------------------------------------------------------------------------
 # 4. AndroidX Security Crypto (EncryptedSharedPreferences)

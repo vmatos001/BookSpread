@@ -157,8 +157,12 @@ flowchart LR
 - Utilizar exclusivamente ilustraciones vectoriales originales / arquetípicas para los avatares (cero capturas oficiales de Disney/Fox/Universal).
 
 ### 4.4 Verificación de la Fase 4
-- Probar navegación fluida por los carruseles. Escaneo de QR con el celular verificando que abra el enlace de afiliado.
-- **Commit:** `feat(billboard): integrate dynamic character curated shelves with affiliate QR`
+- Modelado de curaduría ligera (`CuratorModels.kt`) con arquetipos literarios (La Estudiante Prodigio, El Detective de Baker St., El Crononauta Cósmico, Tesoros Universales).
+- Repositorio con catálogo offline de alta calidad y motor de descarga en segundo plano para obras de libre acceso (`CuratorRepository.kt`).
+- Integración de carruseles interactivos con insignias, avatares y citas en `HomeScreen.kt` (`CuratorRow.kt`).
+- Modal de detalle y compra con Códigos QR dinámicos estándar ISO/IEC generados con ZXing (`CuratedBookModal.kt` & `QrCodeGenerator.kt`).
+- Compilación de Release verificada con R8 activo (APK de 6.14 MB).
+- **Commit:** `feat(billboard): integrate dynamic character curated shelves with affiliate QR` -> **EJECUTADO**
 
 ---
 

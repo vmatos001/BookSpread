@@ -5,7 +5,6 @@ import com.example.calibretv.data.comic.ComicParser
 import com.example.calibretv.data.epub.EpubParser
 import com.example.calibretv.data.epub.PageSpread
 import com.example.calibretv.data.epub.ParsedBook
-import com.example.calibretv.data.image.CoverLoader
 import com.example.calibretv.data.model.Book
 import com.example.calibretv.data.model.CalibreShelf
 import com.example.calibretv.data.model.OpdsCategory
@@ -14,28 +13,44 @@ import com.example.calibretv.data.model.ServerConfig
 import com.example.calibretv.data.model.UserProfile
 import com.example.calibretv.data.opds.OpdsClient
 import com.example.calibretv.data.opds.OpdsFeedContent
-import com.example.calibretv.data.opds.SslHelper
+import com.example.calibretv.data.provider.BookSourceProvider
+import com.example.calibretv.data.provider.DirectTransferProvider
+import com.example.calibretv.data.provider.LocalRoomProvider
+import com.example.calibretv.data.provider.OpdsProvider
 import com.example.calibretv.data.storage.AppDatabase
 import com.example.calibretv.data.storage.BookEntity
 import com.example.calibretv.data.storage.FavoriteEntity
-import com.example.calibretv.data.storage.ReadingProgressEntity
 import com.example.calibretv.data.storage.PreferencesManager
+import com.example.calibretv.data.storage.ReadingProgressEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
 
+/**
+ * 📚 BookRepository — Repositorio Central de BookSpread v3.0 (Multi-Source Pattern)
+ * Orquesta los proveedores de libros (LocalRoomProvider, DirectTransferProvider, OpdsProvider)
+ * garantizando funcionamiento offline instantáneo y compatibilidad omnicanal.
+ */
 class BookRepository(private val context: Context) {
     private val prefs = PreferencesManager(context)
     private val db = AppDatabase.getInstance(context)
     private val bookDao = db.bookDao()
     private val progressDao = db.progressDao()
     private val favoriteDao = db.favoriteDao()
+
+    // Proveedores desacoplados de fuentes de libros
+    val localProvider = LocalRoomProvider(context)
+    val directTransferProvider = DirectTransferProvider(context)
+    val opdsProvider = OpdsProvider(context) { getServerConfig() }
+
+    val providers: List<BookSourceProvider> = listOf(
+        localProvider,
+        directTransferProvider,
+        opdsProvider
+    )
 
     private fun BookEntity.toBook(): Book {
         val tagList = try {
@@ -82,6 +97,7 @@ class BookRepository(private val context: Context) {
         )
     }
 
+    // Configuración y Perfiles
     fun getServerConfig(): ServerConfig = prefs.getServerConfig()
     fun saveServerConfig(config: ServerConfig) = prefs.saveServerConfig(config)
 
@@ -92,8 +108,9 @@ class BookRepository(private val context: Context) {
     fun saveActiveProfile(profile: UserProfile) = prefs.saveActiveProfile(profile)
     fun getProfiles(): List<UserProfile> = prefs.getProfiles()
     fun saveProfiles(profiles: List<UserProfile>) = prefs.saveProfiles(profiles)
-    fun createProfile(name: String, colorHex: String = "#FFA000"): UserProfile = prefs.createProfile(name, colorHex)
+    fun createProfile(name: String, colorHex: String = "#C5A059"): UserProfile = prefs.createProfile(name, colorHex)
 
+    // Favoritos
     fun isFavorite(bookId: String): Boolean = runBlocking(Dispatchers.IO) {
         favoriteDao.isFavorite(prefs.getActiveProfile().id, bookId)
     }
@@ -119,6 +136,7 @@ class BookRepository(private val context: Context) {
         if (favIds.isEmpty()) emptyList() else bookDao.getBooksByIds(favIds).map { it.toBook() }
     }
 
+    // Catálogo en Caché / Base Local
     fun getCachedBooks(): List<Book> = runBlocking(Dispatchers.IO) {
         val entities = bookDao.getAllBooks()
         if (entities.isEmpty()) {
@@ -135,6 +153,7 @@ class BookRepository(private val context: Context) {
         bookDao.upsertBooks(books.map { it.toEntity() })
     }
 
+    // Progreso de Lectura
     fun getBookProgress(bookId: String): Int = runBlocking(Dispatchers.IO) {
         progressDao.getSpreadIndex(prefs.getActiveProfile().id, bookId) ?: prefs.getBookProgress(bookId)
     }
@@ -191,7 +210,7 @@ class BookRepository(private val context: Context) {
     }
 
     suspend fun getOrFetchBookDescription(book: Book): String = withContext(Dispatchers.IO) {
-        // 1. Si la descripción ya es texto real de Calibre-Web, la retornamos inmediatamente
+        // 1. Si la descripción ya es texto real, la retornamos inmediatamente
         if (book.summary.isNotBlank() && book.summary.length > 25 &&
             !book.summary.startsWith("Obra de", ignoreCase = true) &&
             !book.summary.contains("Sin descripción", ignoreCase = true)
@@ -199,7 +218,7 @@ class BookRepository(private val context: Context) {
             return@withContext book.summary
         }
 
-        // 2. Consulta al endpoint individual de detalles de Calibre-Web (/opds/book/{id})
+        // 2. Consulta al endpoint individual de detalles de Calibre-Web (/opds/book/{id}) si está disponible
         val config = getServerConfig()
         if (config.serverUrl.isNotBlank()) {
             val fetchedSynopsis = OpdsClient.fetchBookDetailSynopsis(config.serverUrl, book.id, config.username, config.password)
@@ -210,10 +229,10 @@ class BookRepository(private val context: Context) {
             }
         }
 
-        // 3. Extraer descripción del archivo EPUB si ya se encuentra descargado
-        val cacheFile = File(context.cacheDir, "book_${book.id.hashCode()}.epub")
-        if (cacheFile.exists() && cacheFile.length() > 0L) {
-            val internalDesc = EpubParser.extractDescription(cacheFile)
+        // 3. Extraer descripción del archivo local si ya se encuentra resuelto
+        val resolved = resolveBookFile(book)
+        if (resolved != null && resolved.exists() && resolved.length() > 0L) {
+            val internalDesc = EpubParser.extractDescription(resolved)
             if (!internalDesc.isNullOrBlank() && internalDesc.length > 15) {
                 val updatedBook = book.copy(summary = internalDesc)
                 saveCachedBooks(listOf(updatedBook))
@@ -221,15 +240,13 @@ class BookRepository(private val context: Context) {
             }
         }
 
-        // 4. Fallback generado si no hay sinopsis disponible en el servidor
+        // 4. Fallback generado inteligente
         val tagsToUse = book.shelves.ifEmpty { book.tags }
         OpdsClient.buildSmartDescription(book.title, book.author, book.category, tagsToUse)
     }
 
     /**
-     * Connects to the OPDS server, verifies credentials, scans for all books and saves metadata.
-     * Does NOT download EPUBs (protects TV memory).
-     * Performs incremental comparison preserving local reading progress.
+     * Sincronización con servidor OPDS (opcional y secundario en BookSpread v3.0).
      */
     suspend fun scanServerLibrary(config: ServerConfig): Result<OpdsFeedContent> = withContext(Dispatchers.IO) {
         val scanResult = OpdsClient.fetchLibraryCatalog(
@@ -242,14 +259,12 @@ class BookRepository(private val context: Context) {
             val feed = scanResult.getOrNull()!!
             saveServerConfig(config)
             if (feed.books.isNotEmpty()) {
-                // Incremental sync: Preserve user reading progress for existing books
                 val mergedBooks = feed.books.map { newBook ->
                     val savedPct = getBookProgressPercent(newBook.id)
                     if (savedPct > 0) newBook.copy(progressPercent = savedPct) else newBook
                 }
                 saveCachedBooks(mergedBooks)
 
-                // Cargar estanterías (shelves) en segundo plano
                 try {
                     loadAndApplyShelves(config)
                 } catch (_: Exception) {}
@@ -263,10 +278,15 @@ class BookRepository(private val context: Context) {
         }
     }
 
+    /**
+     * Orquestador unificado de catálogo multi-fuente:
+     * Carga libros locales (Room y transferencias WiFi directas) y los unifica sin bloquear
+     * por falta de red ni exigir configuración previa de servidor.
+     */
     suspend fun getFeed(targetUrl: String? = null): OpdsFeedContent = withContext(Dispatchers.IO) {
         val config = getServerConfig()
 
-        // 1. If explicit subfeed target requested
+        // 1. Si se solicita un subfeed OPDS explícito
         if (!targetUrl.isNullOrBlank() && (targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))) {
             val result = OpdsClient.fetchFeed(targetUrl, config.username, config.password)
             if (result.isSuccess) {
@@ -279,7 +299,7 @@ class BookRepository(private val context: Context) {
             }
         }
 
-        // 2. Load from cached library if available (Lightweight metadata - covers & synopses)
+        // 2. Cargar desde la biblioteca local (Room + Transferencias WiFi directas)
         val cached = getCachedBooks()
         if (cached.isNotEmpty()) {
             val allTags = cached.flatMap { it.tags.ifEmpty { listOf(it.category) } }
@@ -296,64 +316,77 @@ class BookRepository(private val context: Context) {
                 b.copy(progressPercent = if (realPct > 0) realPct else b.progressPercent)
             }
             return@withContext OpdsFeedContent(
-                title = "Biblioteca Calibre",
+                title = "Biblioteca BookSpread",
                 categories = categories,
                 books = annotated
             )
         }
 
-        // 3. If no cached books but server URL configured, attempt scan
-        if (config.serverUrl.isNotBlank() && (config.serverUrl.startsWith("http://") || config.serverUrl.startsWith("https://"))) {
-            val scanResult = scanServerLibrary(config)
-            if (scanResult.isSuccess) {
-                val feed = scanResult.getOrNull()!!
-                if (feed.books.isNotEmpty()) {
-                    val annotated = feed.books.map { b ->
-                        val realPct = getBookProgressPercent(b.id)
-                        b.copy(progressPercent = if (realPct > 0) realPct else b.progressPercent)
+        // 3. Si no hay libros en Room pero hay un servidor OPDS configurado, intentar escaneo no bloqueante
+        if (opdsProvider.isAvailable()) {
+            try {
+                val scanResult = scanServerLibrary(config)
+                if (scanResult.isSuccess) {
+                    val feed = scanResult.getOrNull()!!
+                    if (feed.books.isNotEmpty()) {
+                        val annotated = feed.books.map { b ->
+                            val realPct = getBookProgressPercent(b.id)
+                            b.copy(progressPercent = if (realPct > 0) realPct else b.progressPercent)
+                        }
+                        return@withContext feed.copy(books = annotated)
                     }
-                    return@withContext feed.copy(books = annotated)
                 }
-            }
+            } catch (_: Exception) {}
         }
 
-        // 4. No fake mockup data: Return empty feed if not configured or empty
+        // 4. Catálogo vacío local-first (cero crashes, listo para transferencias WiFi)
         OpdsFeedContent(
-            title = "Biblioteca Calibre",
+            title = "Biblioteca BookSpread",
             categories = listOf(OpdsCategory("cat_all", "Todos", "")),
             books = emptyList()
         )
     }
 
-    fun isSetupCompleted(): Boolean = prefs.isSetupCompleted()
+    /**
+     * Resuelve el archivo físico del libro a través de la cadena de proveedores:
+     * 1. LocalRoomProvider
+     * 2. DirectTransferProvider (WiFi Import)
+     * 3. OpdsProvider (Descarga remota en cacheDir)
+     */
+    suspend fun resolveBookFile(book: Book): File? = withContext(Dispatchers.IO) {
+        for (provider in providers) {
+            try {
+                val file = provider.resolveBookFile(book)
+                if (file != null && file.exists() && file.length() > 0) {
+                    return@withContext file
+                }
+            } catch (_: Exception) {}
+        }
+        null
+    }
+
+    /**
+     * En BookSpread v3.0 el setup inicial no es obligatorio para entrar a la app.
+     * La app arranca inmediatamente en modo local.
+     */
+    fun isSetupCompleted(): Boolean = true
     fun setSetupCompleted(completed: Boolean) = prefs.setSetupCompleted(completed)
 
     /**
-     * Lazy EPUB Loader: Downloads the EPUB file to TV cache ONLY when the user clicks 'Leer en 3D'.
-     * Returns structured ParsedBook containing chapters, text blocks and extracted images.
+     * Carga el libro para lectura 3D resolviendo el archivo físico mediante la cadena de proveedores.
      */
     suspend fun loadRawBook(book: Book): ParsedBook = withContext(Dispatchers.IO) {
         saveLastOpenedBook(book)
-        val epubUrl = book.epubUrl
-        if (epubUrl.isNullOrBlank()) {
+
+        val file = resolveBookFile(book)
+        if (file == null || !file.exists() || file.length() == 0L) {
             return@withContext EpubParser.getNoticeBook(
                 book.title,
-                "Este título no cuenta con archivo EPUB descargable en el servidor."
+                "No se pudo cargar el archivo del libro. Si fue transferido por WiFi, asegúrate de que el archivo no haya sido eliminado."
             )
         }
 
-        val cacheFile = File(context.cacheDir, "book_${book.id.hashCode()}.epub")
-        if (!cacheFile.exists() || cacheFile.length() == 0L) {
-            val downloaded = downloadEpub(epubUrl, cacheFile)
-            if (!downloaded) {
-                return@withContext EpubParser.getNoticeBook(
-                    book.title,
-                    "Error al descargar el libro desde el servidor Calibre-Web. Verifica tu conexión de red o permisos."
-                )
-            }
-        }
-
-        return@withContext EpubParser.parseEpubToBook(cacheFile, book.title)
+        return@withContext EpubParser.parseEpubToBook(file, book.title)
     }
 
     suspend fun loadBookSpreads(
@@ -366,43 +399,10 @@ class BookRepository(private val context: Context) {
     }
 
     suspend fun loadComic(book: Book): ComicParser.ParsedComic = withContext(Dispatchers.IO) {
-        val cacheFile = File(context.cacheDir, "book_${book.id.hashCode()}.cbz")
-        if (!cacheFile.exists() || cacheFile.length() == 0L) {
-            val url = book.epubUrl ?: return@withContext ComicParser.ParsedComic(book.title, emptyList())
-            val downloaded = downloadEpub(url, cacheFile)
-            if (!downloaded) {
-                return@withContext ComicParser.ParsedComic(book.title, emptyList())
-            }
+        val file = resolveBookFile(book)
+        if (file == null || !file.exists() || file.length() == 0L) {
+            return@withContext ComicParser.ParsedComic(book.title, emptyList())
         }
-        ComicParser.parseCbz(cacheFile, context.cacheDir)
-    }
-
-    private fun downloadEpub(epubUrl: String, destFile: File): Boolean {
-        return try {
-            val config = getServerConfig()
-            val url = URL(epubUrl)
-            val conn = url.openConnection() as HttpURLConnection
-            SslHelper.configureHttps(conn)
-            conn.connectTimeout = 10000
-            conn.readTimeout = 25000
-            conn.instanceFollowRedirects = true
-            conn.setRequestProperty("User-Agent", "CalibreTV/1.0 (Android TV)")
-            val auth = CoverLoader.buildBasicAuth(config.username, config.password)
-            if (auth != null) conn.setRequestProperty("Authorization", auth)
-            conn.connect()
-
-            if (conn.responseCode in 200..299) {
-                conn.inputStream.use { input ->
-                    FileOutputStream(destFile).use { output ->
-                        input.copyTo(output)
-                    }
-                }
-                true
-            } else {
-                false
-            }
-        } catch (_: Exception) {
-            false
-        }
+        ComicParser.parseCbz(file, context.cacheDir)
     }
 }

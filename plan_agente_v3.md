@@ -86,8 +86,9 @@ flowchart LR
 - Orquestar los proveedores activos devolviendo un catálogo unificado para la pantalla principal.
 
 ### 2.4 Verificación de la Fase 2
-- La app debe arrancar inmediatamente en modo local sin pedir configuración de servidor ni lanzar pantallas de error si no hay red.
-- **Commit:** `refactor(data): decouple data sources with BookSourceProvider pattern`
+- La app debe arrancar inmediatamente en modo local sin pedir configuración de servidor ni lanzar pantallas de error si no hay red. -> **COMPLETADO (Desacoplamiento total vía `BookSourceProvider`, `LocalRoomProvider`, `DirectTransferProvider`, `OpdsProvider` y arranque directo a `HomeNavKey`)**.
+- Compilación de Release verificada con R8 activo (APK de 5.91 MB).
+- **Commit:** `refactor(data): decouple data sources with BookSourceProvider pattern` -> **EJECUTADO**
 
 ---
 

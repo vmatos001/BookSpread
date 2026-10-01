@@ -74,9 +74,9 @@ import com.example.calibretv.data.image.CoverLoader
 import com.example.calibretv.data.image.rememberCoverImage
 import com.example.calibretv.data.model.Book
 import com.example.calibretv.data.opds.OpdsFeedContent
+import com.example.calibretv.theme.AccentGold
 import com.example.calibretv.theme.AmberWarm
 import com.example.calibretv.theme.BackgroundDark
-import com.example.calibretv.theme.CyanElectric
 import com.example.calibretv.theme.SurfaceContainer
 import com.example.calibretv.theme.SurfaceContainerHigh
 import com.example.calibretv.theme.SurfaceContainerHighest
@@ -344,7 +344,7 @@ fun HomeScreen(
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = "CALIBRO TV",
+                        text = "BOOKSPREAD",
                         color = TextPrimary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -416,7 +416,7 @@ fun HomeScreen(
             ) {
                 if (isLoading) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = CyanElectric)
+                        CircularProgressIndicator(color = AccentGold)
                     }
                 } else {
                     Column(
@@ -557,7 +557,7 @@ fun HomeScreen(
                         .fillMaxHeight(0.80f)
                         .clip(RoundedCornerShape(18.dp))
                         .background(SurfaceContainer)
-                        .border(1.5.dp, CyanElectric.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
+                        .border(1.5.dp, AccentGold.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
                         .clickable(enabled = false) {}
                         .padding(28.dp)
                 ) {
@@ -659,7 +659,7 @@ fun HomeScreen(
                                                     .background(SurfaceContainerHigh, RoundedCornerShape(6.dp))
                                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                                             ) {
-                                                Text(text = "#$tag", color = CyanElectric, fontSize = 11.sp)
+                                                Text(text = "#$tag", color = AccentGold, fontSize = 11.sp)
                                             }
                                         }
                                     }
@@ -804,7 +804,7 @@ private fun HomeHeroSection(
             // Author & Category
             Text(
                 text = "${book.author} • ${book.category}",
-                color = CyanElectric,
+                color = AccentGold,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -898,10 +898,10 @@ private fun HomeShelf(
                     modifier = Modifier
                         .scale(if (isSeeMoreFocused) 1.08f else 1.0f)
                         .clip(RoundedCornerShape(6.dp))
-                        .background(if (isSeeMoreFocused) CyanElectric.copy(alpha = 0.25f) else Color.Transparent)
+                        .background(if (isSeeMoreFocused) AccentGold.copy(alpha = 0.25f) else Color.Transparent)
                         .border(
                             width = if (isSeeMoreFocused) 1.5.dp else 1.dp,
-                            color = if (isSeeMoreFocused) CyanElectric else Color(0xFF33333E),
+                            color = if (isSeeMoreFocused) AccentGold else Color(0xFF33333E),
                             shape = RoundedCornerShape(6.dp)
                         )
                         .onFocusChanged { isSeeMoreFocused = it.isFocused }
@@ -918,14 +918,14 @@ private fun HomeShelf(
                 ) {
                     Text(
                         text = "Ver más",
-                        color = if (isSeeMoreFocused) CyanElectric else TextPrimary,
+                        color = if (isSeeMoreFocused) AccentGold else TextPrimary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Icon(
                         imageVector = Icons.Default.ArrowForward,
                         contentDescription = null,
-                        tint = if (isSeeMoreFocused) CyanElectric else TextMuted,
+                        tint = if (isSeeMoreFocused) AccentGold else TextMuted,
                         modifier = Modifier.size(13.dp)
                     )
                 }
@@ -980,12 +980,12 @@ private fun CompactCoverCard(
         modifier = Modifier
             .width(108.dp)
             .scale(if (isFocused && isInteractive) 1.08f else 1.0f)
-            .shadow(if (isFocused && isInteractive) 14.dp else 2.dp, RoundedCornerShape(8.dp), spotColor = CyanElectric)
+            .shadow(if (isFocused && isInteractive) 14.dp else 2.dp, RoundedCornerShape(8.dp), spotColor = AccentGold)
             .clip(RoundedCornerShape(8.dp))
             .background(SurfaceRaised)
             .border(
                 width = if (isFocused && isInteractive) 2.5.dp else 1.dp,
-                color = if (isFocused && isInteractive) CyanElectric else Color(0xFF242428),
+                color = if (isFocused && isInteractive) AccentGold else Color(0xFF242428),
                 shape = RoundedCornerShape(8.dp)
             )
             .onFocusChanged {
@@ -1069,7 +1069,7 @@ private fun CompactCoverCard(
                 ) {
                     Text(
                         text = "${book.progressPercent}%",
-                        color = CyanElectric,
+                        color = AccentGold,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
@@ -1115,7 +1115,7 @@ private fun CompactCoverCard(
                         modifier = Modifier
                             .fillMaxWidth(book.progressPercent / 100f)
                             .height(2.5.dp)
-                            .background(CyanElectric, RoundedCornerShape(1.dp))
+                            .background(AccentGold, RoundedCornerShape(1.dp))
                     )
                 }
             }
@@ -1199,7 +1199,7 @@ private fun HomeCapsuleChip(
             .background(
                 when {
                     isFocused -> AmberWarm
-                    isSelected -> CyanElectric.copy(alpha = 0.20f)
+                    isSelected -> AccentGold.copy(alpha = 0.20f)
                     else -> SurfaceContainerHigh
                 }
             )
@@ -1207,7 +1207,7 @@ private fun HomeCapsuleChip(
                 width = if (isFocused) 2.dp else if (isSelected) 1.5.dp else 1.dp,
                 color = when {
                     isFocused -> AmberWarm
-                    isSelected -> CyanElectric
+                    isSelected -> AccentGold
                     else -> Color(0xFF2E2E34)
                 },
                 shape = RoundedCornerShape(14.dp)
@@ -1241,7 +1241,7 @@ private fun HomeCapsuleChip(
             contentDescription = null,
             tint = when {
                 isFocused -> Color(0xFF131315)
-                isSelected -> CyanElectric
+                isSelected -> AccentGold
                 else -> TextMuted
             },
             modifier = Modifier.size(12.dp)
@@ -1250,7 +1250,7 @@ private fun HomeCapsuleChip(
             text = title,
             color = when {
                 isFocused -> Color(0xFF131315)
-                isSelected -> CyanElectric
+                isSelected -> AccentGold
                 else -> TextPrimary
             },
             fontSize = 11.sp,
@@ -1368,7 +1368,7 @@ fun EmptyLibraryBanner(
                 .background(if (isFocused) SurfaceContainerHighest else SurfaceContainer)
                 .border(
                     width = if (isFocused) 2.dp else 1.dp,
-                    color = if (isFocused) CyanElectric else Color(0xFF2E2E34),
+                    color = if (isFocused) AccentGold else Color(0xFF2E2E34),
                     shape = RoundedCornerShape(16.dp)
                 )
                 .scale(if (isFocused) 1.01f else 1.0f)
@@ -1397,13 +1397,13 @@ fun EmptyLibraryBanner(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(CircleShape)
-                        .background(CyanElectric.copy(alpha = 0.15f)),
+                        .background(AccentGold.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.MenuBook,
                         contentDescription = null,
-                        tint = CyanElectric,
+                        tint = AccentGold,
                         modifier = Modifier.size(30.dp)
                     )
                 }
@@ -1412,13 +1412,13 @@ fun EmptyLibraryBanner(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "Tu biblioteca está lista pero aún no tiene libros sincronizados",
+                        text = "Tu biblioteca BookSpread está lista",
                         color = TextPrimary,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Conecta o sincroniza tu servidor Calibre-Web para descargar tus títulos en formato EPUB.",
+                        text = "Transfiere libros (.epub / .cbz) desde tu teléfono o PC por WiFi con QR, o conecta un servidor Calibre-Web.",
                         color = TextMuted,
                         fontSize = 13.sp
                     )
@@ -1426,11 +1426,11 @@ fun EmptyLibraryBanner(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
-                        .background(if (isFocused) AmberWarm else CyanElectric)
+                        .background(AccentGold)
                         .padding(horizontal = 18.dp, vertical = 10.dp)
                 ) {
                     Text(
-                        text = "Configurar Servidor OPDS",
+                        text = "Configurar Servidor / Fuentes",
                         color = Color(0xFF131315),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold

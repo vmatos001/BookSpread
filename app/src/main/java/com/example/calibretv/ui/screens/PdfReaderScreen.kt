@@ -30,6 +30,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.MusicNote
+import com.example.calibretv.data.model.AmbientSound
+import com.example.calibretv.data.sound.AmbientSoundManager
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -119,6 +122,10 @@ fun PdfReaderScreen(
     // Memoria estricta: Mantener en caché activa solo una ventana de 3 pliegos (anterior, actual, siguiente)
     val spreadCache = remember { mutableStateMapOf<Int, SpreadBitmaps>() }
 
+    // Paisajes sonoros inmersivos
+    val ambientManager = remember { AmbientSoundManager(context) }
+    var currentAmbientSound by remember { mutableStateOf(AmbientSound.NONE) }
+
     // 1. Cargar el archivo PDF y restaurar progreso
     LaunchedEffect(book.id) {
         withContext(Dispatchers.IO) {
@@ -150,6 +157,7 @@ fun PdfReaderScreen(
             pdfHandler?.close()
             spreadCache.values.forEach { it.recycle() }
             spreadCache.clear()
+            ambientManager.release()
         }
     }
 
@@ -459,6 +467,23 @@ fun PdfReaderScreen(
                     PdfReaderTopHud(
                         bookTitle = book.title,
                         bookAuthor = book.author,
+                        currentAmbient = currentAmbientSound,
+                        onCycleAmbient = {
+                            val nextSound = when (currentAmbientSound) {
+                                AmbientSound.NONE -> AmbientSound.RAIN
+                                AmbientSound.RAIN -> AmbientSound.FIREPLACE
+                                AmbientSound.FIREPLACE -> AmbientSound.OCEAN
+                                AmbientSound.OCEAN -> AmbientSound.CAFE
+                                AmbientSound.CAFE -> AmbientSound.FOREST
+                                AmbientSound.FOREST -> AmbientSound.NONE
+                            }
+                            currentAmbientSound = nextSound
+                            if (nextSound == AmbientSound.NONE) {
+                                ambientManager.stop()
+                            } else {
+                                ambientManager.play(nextSound, 0.4f)
+                            }
+                        },
                         onBack = {
                             saveCurrentProgress(currentSpreadIndex)
                             onBack()
@@ -500,9 +525,12 @@ fun PdfReaderScreen(
 private fun PdfReaderTopHud(
     bookTitle: String,
     bookAuthor: String,
+    currentAmbient: AmbientSound,
+    onCycleAmbient: () -> Unit,
     onBack: () -> Unit
 ) {
     var isBackFocused by remember { mutableStateOf(false) }
+    var isAmbientFocused by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
@@ -520,35 +548,79 @@ private fun PdfReaderTopHud(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Botón Volver estilizado
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(if (isBackFocused) AccentGold else SurfaceContainerHigh)
-                .border(
-                    width = 1.dp,
-                    color = if (isBackFocused) AccentGold else Color(0xFF2A2826),
-                    shape = RoundedCornerShape(8.dp)
-                )
-                .onFocusChanged { isBackFocused = it.isFocused }
-                .focusable()
-                .clickable { onBack() }
-                .padding(horizontal = 14.dp, vertical = 8.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Volver",
-                tint = if (isBackFocused) BackgroundDark else AntiqueIvory,
-                modifier = Modifier.size(16.dp)
-            )
-            Text(
-                text = "Biblioteca",
-                color = if (isBackFocused) BackgroundDark else AntiqueIvory,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
+            // Botón Volver estilizado
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isBackFocused) AccentGold else SurfaceContainerHigh)
+                    .border(
+                        width = 1.dp,
+                        color = if (isBackFocused) AccentGold else Color(0xFF2A2826),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .onFocusChanged { isBackFocused = it.isFocused }
+                    .focusable()
+                    .clickable { onBack() }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Volver",
+                    tint = if (isBackFocused) BackgroundDark else AntiqueIvory,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "Biblioteca",
+                    color = if (isBackFocused) BackgroundDark else AntiqueIvory,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // Botón Paisaje Sonoro inmersivo
+            val ambientLabel = when (currentAmbient) {
+                AmbientSound.NONE -> "🔕 Ambiente"
+                AmbientSound.RAIN -> "🌧 Lluvia"
+                AmbientSound.FIREPLACE -> "🔥 Chimenea"
+                AmbientSound.OCEAN -> "🌊 Mar"
+                AmbientSound.CAFE -> "☕ Café"
+                AmbientSound.FOREST -> "🌲 Bosque"
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isAmbientFocused) AccentGold else if (currentAmbient != AmbientSound.NONE) Color(0xFF423419) else SurfaceContainerHigh)
+                    .border(
+                        width = 1.dp,
+                        color = if (isAmbientFocused) AccentGold else Color(0xFF2A2826),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .onFocusChanged { isAmbientFocused = it.isFocused }
+                    .focusable()
+                    .clickable { onCycleAmbient() }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.MusicNote,
+                    contentDescription = null,
+                    tint = if (isAmbientFocused) BackgroundDark else if (currentAmbient != AmbientSound.NONE) AccentGold else AntiqueIvory,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = ambientLabel,
+                    color = if (isAmbientFocused) BackgroundDark else if (currentAmbient != AmbientSound.NONE) AccentGold else AntiqueIvory,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
         // Título del libro y autor

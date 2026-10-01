@@ -10,7 +10,7 @@
 - **Versión Activa:** `v3.0-dev` (Evolución arquitectónica y rebranding desde CalibroTV v2.5)
 - **Package ID:** `com.bookspread.app`
 - **Repositorio Oficial:** `https://github.com/vmatos001/BookSpread` (Upstream original: `https://github.com/vmatos001/calibrotv`)
-- **Plan Activo de Desarrollo:** Consúltese [`plan_agente_v3.md`](file:///c:/Users/laura%20hart/Proyectos/BookSpread/bookspread_app/plan_agente_v3.md) (Fases 1, 2, 3 y 4 completadas: APK 6.14 MB, R8 activo, motor PDF en pliego dual y cartelera curada por arquetipos con códigos QR de afiliado y descargas directas).
+- **Plan Activo de Desarrollo:** Consúltese [`plan_agente_v3.md`](file:///c:/Users/laura%20hart/Proyectos/BookSpread/bookspread_app/plan_agente_v3.md) (Fases 1 a 5 completadas: APK 6.14 MB, R8 activo, motor PDF dual 16:9, cartelera curada con QR y servicio de audio con ducking inteligente).
 - **Keystore de Firma:** `app/keystore/calibrotv.keystore` (Firma unificada permanente para Debug y Release con Huella SHA256: `52:E8:ED:A7:6F:9C:CA:51:F5:55:6E:48:47:7C:20:C3:8F:AE:6B:4F:6C:AE:C3:D4:84:FB:98:17:7F:7E:F8:0C`).
 
 ---

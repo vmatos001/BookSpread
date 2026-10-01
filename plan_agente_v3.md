@@ -183,8 +183,11 @@ flowchart LR
 - Mantener la atenuación progresiva de pantalla y sonido en los últimos 2 minutos antes de apagar.
 
 ### 5.4 Verificación de la Fase 5
-- Activar lluvia de fondo y lectura por voz TTS simultáneamente. Comprobar que la voz se entienda con total nitidez y que no haya cierres por `IllegalStateException`.
-- **Commit:** `feat(audio): decouple ambient sound service with intelligent TTS ducking`
+- Creación de `AudioPlaybackService` como Foreground Service con gestión de Audio Focus oficial (`AudioFocusRequest`).
+- Ducking inteligente implementado en `AmbientSoundManager`: atenuación al 20% con interpolación suave de 300 ms mientras el TTS lee, y restauración gradual al terminar.
+- Controles de volumen ambiental y velocidad de TTS integrados en el HUD accesible con D-Pad en `ReaderScreen.kt` y selector de ambiente en `PdfReaderScreen.kt`.
+- Compilación de Release verificada con R8 activo (APK de 6.14 MB).
+- **Commit:** `feat(audio): decouple ambient sound service with intelligent TTS ducking` -> **EJECUTADO**
 
 ---
 

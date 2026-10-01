@@ -42,7 +42,9 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -175,6 +177,11 @@ fun ReaderScreen(
         } else {
             ambientManager.play(settings.ambientSound, settings.ambientVolume)
         }
+    }
+
+    // Ducking automático: Cuando el TTS habla, atenuar el paisaje sonoro al 20% suavemente
+    LaunchedEffect(isTtsPlaying) {
+        ambientManager.duck(enabled = isTtsPlaying)
     }
 
     // Load parsed book once
@@ -945,6 +952,43 @@ fun ReaderScreen(
                                         AmbientSound.FOREST -> AmbientSound.NONE
                                     }
                                     settings = settings.copy(ambientSound = nextSound)
+                                    repository.saveReadingSettings(settings)
+                                }
+                            )
+                        }
+                        if (settings.ambientSound != AmbientSound.NONE) {
+                            item {
+                                val volPercent = (settings.ambientVolume * 100).toInt()
+                                StitchHudButton(
+                                    title = "🔊 $volPercent%",
+                                    icon = Icons.Filled.VolumeUp,
+                                    isPrimary = false,
+                                    onClick = {
+                                        val nextVol = when {
+                                            settings.ambientVolume <= 0.25f -> 0.50f
+                                            settings.ambientVolume <= 0.55f -> 0.80f
+                                            settings.ambientVolume <= 0.85f -> 1.0f
+                                            else -> 0.20f
+                                        }
+                                        settings = settings.copy(ambientVolume = nextVol)
+                                        repository.saveReadingSettings(settings)
+                                    }
+                                )
+                            }
+                        }
+                        item {
+                            StitchHudButton(
+                                title = "⚡ ${settings.ttsSpeedRate}x",
+                                icon = Icons.Filled.Speed,
+                                isPrimary = settings.ttsSpeedRate != 1.0f,
+                                onClick = {
+                                    val nextSpeed = when (settings.ttsSpeedRate) {
+                                        0.75f -> 1.0f
+                                        1.0f -> 1.25f
+                                        1.25f -> 1.5f
+                                        else -> 0.75f
+                                    }
+                                    settings = settings.copy(ttsSpeedRate = nextSpeed)
                                     repository.saveReadingSettings(settings)
                                 }
                             )

@@ -47,6 +47,7 @@
 -keep class com.example.calibretv.data.update.** { *; }
 -keep class com.example.calibretv.data.server.** { *; }
 -keep class com.example.calibretv.data.provider.** { *; }
+-keep class com.example.calibretv.data.pdf.** { *; }
 
 # ------------------------------------------------------------------------------
 # 4. AndroidX Security Crypto (EncryptedSharedPreferences)

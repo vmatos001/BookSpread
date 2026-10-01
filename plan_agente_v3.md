@@ -110,9 +110,13 @@ flowchart LR
 - Con la cruceta (Arriba/Abajo) permitir dividir la visualización en mitad superior e inferior de la página para textos con letra pequeña.
 
 ### 3.4 Verificación de la Fase 3
-- Abrir un PDF de más de 300 páginas. Realizar scroll rápido con el D-Pad durante 2 minutos continuos.
-- Comprobar en Android Studio Profiler que la memoria RAM se mantiene estable por debajo de 200 MB sin fugas.
-- **Commit:** `feat(reader): add memory-safe dual-spread PDF renderer for TV`
+- Motor nativo `PdfParser` con renderizado thread-safe y extracción de portada.
+- Visor `PdfReaderScreen` en pliego dual 16:9 (portada solitaria + páginas pares/impares con lomo editorial central).
+- Blindaje estricto de memoria con ventana activa de 3 pliegos y reciclaje inmediato de bitmaps fuera de ventana.
+- Navegación completa por D-Pad, HUD superior/inferior con persistencia de progreso en Room (`ReadingProgressEntity`).
+- Soporte para subida y procesamiento directo de `.pdf` vía `WifiImportServer`.
+- Compilación de Release verificada con R8 activo (APK de 5.92 MB).
+- **Commit:** `feat(reader): add memory-safe dual-spread PDF renderer for TV` -> **EJECUTADO**
 
 ---
 

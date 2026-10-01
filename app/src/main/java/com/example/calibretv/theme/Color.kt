@@ -31,7 +31,8 @@ val AmberWarm = AccentGold
 val CyanElectric = AccentGold
 
 // Tipografía Editorial (Contraste WCAG AAA)
-val TextPrimary = Color(0xFFF7F4EE)       // Antique Ivory: Títulos y texto de lectura
+val AntiqueIvory = Color(0xFFF7F4EE)      // Antique Ivory: Títulos y texto de lectura
+val TextPrimary = AntiqueIvory
 val TextSecondary = Color(0xFFD4CFC6)     // Soft Parchment: Subtítulos y nombres de autor
 val TextMuted = Color(0xFFA8A29E)         // Warm Linen: Sinopsis y metadata
 val TextVariant = TextSecondary

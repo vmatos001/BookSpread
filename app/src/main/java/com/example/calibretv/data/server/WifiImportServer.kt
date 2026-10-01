@@ -6,6 +6,7 @@ import com.example.calibretv.data.BookRepository
 import com.example.calibretv.data.comic.ComicParser
 import com.example.calibretv.data.epub.EpubParser
 import com.example.calibretv.data.model.Book
+import com.example.calibretv.data.pdf.PdfParser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -162,11 +163,11 @@ class WifiImportServer(private val context: Context, private val repository: Boo
             <body>
                 <div class="card">
                     <h1>📖 BookSpread</h1>
-                    <p>Sube libros (.epub) o cómics (.cbz / .cbr) directamente a tu televisor.</p>
+                    <p>Sube libros (.epub, .pdf) o cómics (.cbz / .cbr) directamente a tu televisor.</p>
                     <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm">
                         <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
-                            <p id="dropText">📁 Haz clic aquí para seleccionar tu archivo EPUB / CBZ</p>
-                            <input type="file" name="file" id="fileInput" accept=".epub,.cbz,.cbr" onchange="fileSelected()">
+                            <p id="dropText">📁 Haz clic aquí para seleccionar tu archivo EPUB / PDF / CBZ</p>
+                            <input type="file" name="file" id="fileInput" accept=".epub,.pdf,.cbz,.cbr" onchange="fileSelected()">
                         </div>
                         <button type="submit" class="btn">🚀 Enviar a BookSpread</button>
                     </form>
@@ -265,41 +266,76 @@ class WifiImportServer(private val context: Context, private val repository: Boo
     private suspend fun processUploadedFile(tempFile: File, contentType: String) {
         withContext(Dispatchers.IO) {
             try {
-                val isComic = ComicParser.isComicFile(tempFile) || contentType.contains("zip") || tempFile.name.endsWith(".cbz")
+                val isPdf = PdfParser.isPdfFile(tempFile) || contentType.contains("pdf")
+                val isComic = !isPdf && (ComicParser.isComicFile(tempFile) || contentType.contains("zip") || tempFile.name.endsWith(".cbz"))
                 val bookId = "local_wifi_${System.currentTimeMillis()}"
 
                 var title = "Libro Importado WiFi"
                 var author = "Importado por WiFi"
                 var summary = "Libro importado directamente desde tu dispositivo mediante WiFi."
+                var coverPath: String? = null
 
-                if (!isComic) {
-                    val parsed = EpubParser.parseEpubToBook(tempFile, tempFile.nameWithoutExtension)
-                    if (parsed.title.isNotBlank()) title = parsed.title
-                    val extractedDesc = EpubParser.extractDescription(tempFile)
-                    if (!extractedDesc.isNullOrBlank()) summary = extractedDesc
-                } else {
-                    title = tempFile.nameWithoutExtension
+                when {
+                    isPdf -> {
+                        title = tempFile.nameWithoutExtension.replace('_', ' ')
+                        author = "Documento PDF"
+                        summary = "Documento PDF importado directamente por WiFi."
+
+                        // Extraer miniatura de portada
+                        val coverBmp = PdfParser.extractCover(tempFile, 400, 600)
+                        if (coverBmp != null) {
+                            val coverFile = File(context.filesDir, "cover_$bookId.png")
+                            FileOutputStream(coverFile).use { out ->
+                                coverBmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 90, out)
+                            }
+                            coverPath = coverFile.absolutePath
+                            coverBmp.recycle()
+                        }
+                    }
+                    isComic -> {
+                        title = tempFile.nameWithoutExtension
+                        author = "Cómic"
+                        summary = "Cómic importado directamente por WiFi."
+                    }
+                    else -> {
+                        val parsed = EpubParser.parseEpubToBook(tempFile, tempFile.nameWithoutExtension)
+                        if (parsed.title.isNotBlank()) title = parsed.title
+                        val extractedDesc = EpubParser.extractDescription(tempFile)
+                        if (!extractedDesc.isNullOrBlank()) summary = extractedDesc
+                    }
                 }
 
-                val destFile = File(context.filesDir, "book_$bookId.${if (isComic) "cbz" else "epub"}")
+                val ext = when {
+                    isPdf -> "pdf"
+                    isComic -> "cbz"
+                    else -> "epub"
+                }
+
+                val destFile = File(context.filesDir, "book_$bookId.$ext")
                 tempFile.copyTo(destFile, overwrite = true)
                 tempFile.delete()
+
+                val category = when {
+                    isPdf -> "PDF"
+                    isComic -> "Cómic"
+                    else -> "WiFi"
+                }
 
                 val newBook = Book(
                     id = bookId,
                     title = title,
                     author = author,
-                    coverUrl = null,
+                    coverUrl = coverPath,
                     epubUrl = destFile.absolutePath,
                     summary = summary,
-                    category = if (isComic) "Cómic" else "WiFi",
-                    tags = listOf("WiFi", "Local")
+                    category = category,
+                    tags = listOf(category, "Local")
                 )
 
                 val current = repository.getCachedBooks().toMutableList()
                 current.add(0, newBook)
                 repository.saveCachedBooks(current)
-                Log.d(TAG, "Successfully processed uploaded book: $title")
+                Log.d(TAG, "Successfully processed uploaded book: $title ($category)")
             } catch (e: Exception) {
                 Log.e(TAG, "Error processing uploaded file", e)
             }
